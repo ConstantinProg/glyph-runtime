@@ -1,0 +1,60 @@
+namespace Glyph.Tests;
+
+public sealed class PublicApiSmokeTests
+{
+    [Fact]
+    public void PublicContracts_CanBeReferenced()
+    {
+        GlyphOptions options = new()
+        {
+            ResourcesPath = "Localization",
+            DefaultLocale = "en",
+            Fallbacks =
+            {
+                ["ru-RU"] = ["ru", "en"]
+            }
+        };
+
+        GlyphLookupResult lookup = new(
+            GlyphLookupStatus.Found,
+            "en",
+            "menu.play",
+            "Play",
+            "en",
+            1);
+
+        GlyphBatchLookupResult batch = new()
+        {
+            Locale = "en",
+            SnapshotVersion = 1,
+            Items = [lookup]
+        };
+
+        GlyphSnapshotInfo snapshot = new()
+        {
+            Version = 1,
+            DefaultLocale = "en",
+            Locales = ["en"],
+            UniqueKeyCount = 1,
+            TotalEntryCount = 1,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        GlyphReloadResult reload = new()
+        {
+            Success = true,
+            OldVersion = 1,
+            NewVersion = 2,
+            LocaleCount = 1,
+            UniqueKeyCount = 1,
+            TotalEntryCount = 1
+        };
+
+        Assert.Equal("Localization", options.ResourcesPath);
+        Assert.True(lookup.Found);
+        Assert.False(lookup.FallbackUsed);
+        Assert.Single(batch.Items);
+        Assert.Single(snapshot.Locales);
+        Assert.Empty(reload.Errors);
+    }
+}
