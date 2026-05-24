@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Glyph.Benchmarks/Glyph.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Glyph.Sample/Glyph.Sample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Glyph/Glyph.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Glyph.Tests/Glyph.Tests.csproj" />
+  </Folder>
+</Solution>
