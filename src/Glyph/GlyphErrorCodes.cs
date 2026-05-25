@@ -20,5 +20,7 @@ internal static class GlyphErrorCodes
 
     public const string InvalidEncoding = "INVALID_ENCODING";
 
+    public const string InvalidOptions = "INVALID_OPTIONS";
+
     public const string NotImplemented = "NOT_IMPLEMENTED";
 }
