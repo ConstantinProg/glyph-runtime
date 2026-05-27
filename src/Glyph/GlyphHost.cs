@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Glyph;
 
 public static class GlyphHost
@@ -10,13 +12,25 @@ public static class GlyphHost
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(options.ResourcesPath);
+        GlyphOptionsValidationResult optionsValidation =
+            GlyphOptionsValidator.Validate(options);
+
+        if (!optionsValidation.Success)
+        {
+            throw CreateInitializationException(optionsValidation.Errors);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        GlyphLoadResult loadResult =
+            GlyphJsonResourceLoader.Load(optionsValidation.ResourcesPath);
 
         if (!loadResult.Success)
         {
-            throw new InvalidOperationException(
-                CreateValidationFailureMessage(loadResult.Errors));
+            throw CreateInitializationException(loadResult.Errors);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
             options,
@@ -25,8 +39,7 @@ public static class GlyphHost
 
         if (!buildResult.Success || buildResult.Snapshot is null)
         {
-            throw new InvalidOperationException(
-                CreateValidationFailureMessage(buildResult.Errors));
+            throw CreateInitializationException(buildResult.Errors);
         }
 
         IGlyph runtime = new GlyphRuntime(
@@ -36,14 +49,52 @@ public static class GlyphHost
         return ValueTask.FromResult(runtime);
     }
 
-    private static string CreateValidationFailureMessage(
+    private static InvalidOperationException CreateInitializationException(
         IReadOnlyList<GlyphReloadError> errors)
     {
         if (errors.Count == 0)
         {
-            return "Glyph validation failed.";
+            return new InvalidOperationException(
+                "Glyph initialization failed.");
         }
 
-        return $"Glyph validation failed: {errors[0].Code}: {errors[0].Message}";
+        StringBuilder message = new();
+
+        message.AppendLine("Glyph initialization failed.");
+        message.AppendLine("Errors:");
+
+        foreach (GlyphReloadError error in errors)
+        {
+            message.Append("- ");
+            message.Append(error.Code);
+
+            if (!string.IsNullOrWhiteSpace(error.Message))
+            {
+                message.Append(": ");
+                message.Append(error.Message);
+            }
+
+            if (!string.IsNullOrWhiteSpace(error.SourceName))
+            {
+                message.Append(" Source=");
+                message.Append(error.SourceName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(error.Locale))
+            {
+                message.Append(" Locale=");
+                message.Append(error.Locale);
+            }
+
+            if (!string.IsNullOrWhiteSpace(error.Key))
+            {
+                message.Append(" Key=");
+                message.Append(error.Key);
+            }
+
+            message.AppendLine();
+        }
+
+        return new InvalidOperationException(message.ToString());
     }
 }
