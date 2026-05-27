@@ -10,15 +10,7 @@ public static class GlyphHost
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphOptionsValidationResult validation = GlyphOptionsValidator.Validate(options);
-
-        if (!validation.Success)
-        {
-            throw new InvalidOperationException(
-                CreateValidationFailureMessage(validation.Errors));
-        }
-
-        GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(validation.ResourcesPath);
+        GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(options.ResourcesPath);
 
         if (!loadResult.Success)
         {
@@ -26,24 +18,20 @@ public static class GlyphHost
                 CreateValidationFailureMessage(loadResult.Errors));
         }
 
-        if (!loadResult.Resources.Any(resource => resource.Locale == validation.DefaultLocale))
+        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+            options,
+            loadResult.Resources,
+            oldSnapshotVersion: 0);
+
+        if (!buildResult.Success || buildResult.Snapshot is null)
         {
             throw new InvalidOperationException(
-                $"{GlyphErrorCodes.MissingDefaultLocale}: Default locale file was not found.");
+                CreateValidationFailureMessage(buildResult.Errors));
         }
 
-        GlyphSnapshot snapshot = GlyphSnapshot.Create(
-            version: 1,
-            defaultLocale: validation.DefaultLocale,
-            resources: loadResult.Resources,
-            fallbacks: validation.Fallbacks,
-            createdAt: DateTimeOffset.UtcNow);
-
         IGlyph runtime = new GlyphRuntime(
-            new GlyphSnapshotStore(snapshot),
-            validation.ResourcesPath,
-            validation.DefaultLocale,
-            validation.Fallbacks);
+            new GlyphSnapshotStore(buildResult.Snapshot),
+            options);
 
         return ValueTask.FromResult(runtime);
     }

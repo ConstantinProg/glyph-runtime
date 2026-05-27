@@ -3,45 +3,39 @@ namespace Glyph;
 internal sealed class GlyphRuntime : IGlyph
 {
     private readonly GlyphSnapshotStore _snapshotStore;
-    private readonly string _resourcesPath;
-    private readonly string _defaultLocale;
-    private readonly IReadOnlyDictionary<string, string[]> _fallbacks;
+    private readonly GlyphOptions _options;
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
     public GlyphRuntime(
         GlyphSnapshotStore snapshotStore,
-        string resourcesPath,
-        string defaultLocale,
-        IReadOnlyDictionary<string, string[]> fallbacks)
+        GlyphOptions options)
     {
         ArgumentNullException.ThrowIfNull(snapshotStore);
-        ArgumentNullException.ThrowIfNull(resourcesPath);
-        ArgumentNullException.ThrowIfNull(defaultLocale);
-        ArgumentNullException.ThrowIfNull(fallbacks);
+        ArgumentNullException.ThrowIfNull(options);
 
         _snapshotStore = snapshotStore;
-        _resourcesPath = resourcesPath;
-        _defaultLocale = defaultLocale;
-        _fallbacks = fallbacks;
+        _options = options;
     }
 
-    public GlyphLookupResult Get(
-        string locale,
-        string key)
+    public GlyphLookupResult Get(string locale, string key)
     {
+        string normalizedLocale = ValidateLocaleArgument(locale);
+        GlyphKeyValidator.ValidateArgument(key);
+
         GlyphSnapshot snapshot = _snapshotStore.Current;
 
-        return snapshot.Get(locale, key);
+        return snapshot.Get(locale, normalizedLocale, key);
     }
 
     public GlyphBatchLookupResult GetBatch(
         string locale,
         IReadOnlyList<string> keys)
     {
+        string normalizedLocale = ValidateLocaleArgument(locale);
         ArgumentNullException.ThrowIfNull(keys);
 
         GlyphSnapshot snapshot = _snapshotStore.Current;
-        string[] fallbackChain = snapshot.GetFallbackChain(locale, out string normalizedLocale);
+        string[] fallbackChain = snapshot.GetFallbackChain(normalizedLocale);
         bool requestedLocaleExists = snapshot.HasLocale(normalizedLocale);
 
         GlyphLookupResult[] items = new GlyphLookupResult[keys.Count];
@@ -53,11 +47,11 @@ internal sealed class GlyphRuntime : IGlyph
             GlyphKeyValidator.ValidateArgument(key);
 
             items[i] = snapshot.GetUsingFallbackChain(
-                originalLocale: locale,
-                normalizedLocale: normalizedLocale,
-                key: key,
-                fallbackChain: fallbackChain,
-                requestedLocaleExists: requestedLocaleExists);
+                locale,
+                normalizedLocale,
+                key,
+                fallbackChain,
+                requestedLocaleExists);
         }
 
         return new GlyphBatchLookupResult
@@ -93,34 +87,24 @@ internal sealed class GlyphRuntime : IGlyph
         try
         {
             GlyphSnapshot current = _snapshotStore.Current;
-            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_resourcesPath);
+            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_options.ResourcesPath);
 
             if (!loadResult.Success)
             {
                 return CreateFailedReloadResult(current, loadResult.Errors);
             }
 
-            if (!loadResult.Resources.Any(resource => resource.Locale == _defaultLocale))
+            GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+                _options,
+                loadResult.Resources,
+                current.Version);
+
+            if (!buildResult.Success || buildResult.Snapshot is null)
             {
-                return CreateFailedReloadResult(
-                    current,
-                    [
-                        new GlyphReloadError
-                        {
-                            Code = GlyphErrorCodes.MissingDefaultLocale,
-                            Message = "Default locale file was not found.",
-                            Locale = _defaultLocale
-                        }
-                    ]);
+                return CreateFailedReloadResult(current, buildResult.Errors);
             }
 
-            GlyphSnapshot next = GlyphSnapshot.Create(
-                version: current.Version + 1,
-                defaultLocale: _defaultLocale,
-                resources: loadResult.Resources,
-                fallbacks: _fallbacks,
-                createdAt: DateTimeOffset.UtcNow);
-
+            GlyphSnapshot next = buildResult.Snapshot;
             _snapshotStore.Swap(next);
 
             return new GlyphReloadResult

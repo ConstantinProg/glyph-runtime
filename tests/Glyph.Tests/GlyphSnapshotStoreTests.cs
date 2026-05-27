@@ -5,7 +5,7 @@ public sealed class GlyphSnapshotStoreTests
     [Fact]
     public void Current_ReturnsInitialSnapshot()
     {
-        GlyphSnapshot snapshot = CreateSnapshot(version: 1);
+        GlyphSnapshot snapshot = CreateSnapshot(oldVersion: 0);
         GlyphSnapshotStore store = new(snapshot);
 
         GlyphSnapshot current = store.Current;
@@ -17,8 +17,8 @@ public sealed class GlyphSnapshotStoreTests
     [Fact]
     public void Swap_PublishesNewSnapshot()
     {
-        GlyphSnapshot first = CreateSnapshot(version: 1);
-        GlyphSnapshot second = CreateSnapshot(version: 2);
+        GlyphSnapshot first = CreateSnapshot(oldVersion: 0);
+        GlyphSnapshot second = CreateSnapshot(oldVersion: 1);
 
         GlyphSnapshotStore store = new(first);
 
@@ -28,23 +28,31 @@ public sealed class GlyphSnapshotStoreTests
         Assert.Equal<ulong>(2, store.Current.Version);
     }
 
-    private static GlyphSnapshot CreateSnapshot(ulong version)
+    private static GlyphSnapshot CreateSnapshot(ulong oldVersion)
     {
-        GlyphLocaleResource resource = new()
+        GlyphOptions options = new()
         {
-            Locale = "en",
-            SourceName = "en.json",
-            Values = new Dictionary<string, string>
-            {
-                ["menu.play"] = "Play"
-            }
+            ResourcesPath = "Localization",
+            DefaultLocale = "en"
         };
 
-        return GlyphSnapshot.Create(
-            version,
-            defaultLocale: "en",
-            resources: [resource],
-            fallbacks: new Dictionary<string, string[]>(),
-            createdAt: DateTimeOffset.UtcNow);
+        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+            options,
+            [
+                new GlyphLocaleResource
+                {
+                    Locale = "en",
+                    SourceName = "en.json",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["menu.play"] = "Play"
+                    }
+                }
+            ],
+            oldVersion);
+
+        Assert.True(result.Success);
+
+        return result.Snapshot!;
     }
 }
