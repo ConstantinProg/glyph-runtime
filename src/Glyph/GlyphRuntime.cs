@@ -24,10 +24,7 @@ internal sealed class GlyphRuntime : IGlyph
 
         GlyphSnapshot snapshot = _snapshotStore.Current;
 
-        return snapshot.Get(
-            originalLocale: locale,
-            normalizedLocale: normalizedLocale,
-            key: key);
+        return snapshot.Get(locale, normalizedLocale, key);
     }
 
     public GlyphBatchLookupResult GetBatch(
@@ -53,11 +50,11 @@ internal sealed class GlyphRuntime : IGlyph
             string key = keys[i];
 
             items[i] = snapshot.GetUsingFallbackChain(
-                originalLocale: locale,
-                normalizedLocale: normalizedLocale,
-                key: key,
-                fallbackChain: fallbackChain,
-                requestedLocaleExists: requestedLocaleExists);
+                locale,
+                normalizedLocale,
+                key,
+                fallbackChain,
+                requestedLocaleExists);
         }
 
         return new GlyphBatchLookupResult
@@ -92,6 +89,8 @@ internal sealed class GlyphRuntime : IGlyph
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             GlyphSnapshot current = _snapshotStore.Current;
             GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_options.ResourcesPath);
 
@@ -99,6 +98,8 @@ internal sealed class GlyphRuntime : IGlyph
             {
                 return CreateFailedReloadResult(current, loadResult.Errors);
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
                 _options,
@@ -109,6 +110,8 @@ internal sealed class GlyphRuntime : IGlyph
             {
                 return CreateFailedReloadResult(current, buildResult.Errors);
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             GlyphSnapshot next = buildResult.Snapshot;
             _snapshotStore.Swap(next);
