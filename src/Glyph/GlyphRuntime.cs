@@ -19,47 +19,46 @@ internal sealed class GlyphRuntime : IGlyph
 
     public GlyphLookupResult Get(string locale, string key)
     {
-        string normalizedLocale = ValidateLocaleArgument(locale);
-        GlyphKeyValidator.ValidateArgument(key);
-
         GlyphSnapshot snapshot = _snapshotStore.Current;
 
-        return snapshot.Get(locale, normalizedLocale, key);
+        return snapshot.Get(locale, key);
     }
 
     public GlyphBatchLookupResult GetBatch(
         string locale,
         IReadOnlyList<string> keys)
     {
-        string normalizedLocale = ValidateLocaleArgument(locale);
         ArgumentNullException.ThrowIfNull(keys);
 
-        for (int i = 0; i < keys.Count; i++)
-        {
-            GlyphKeyValidator.ValidateArgument(keys[i]);
-        }
-
         GlyphSnapshot snapshot = _snapshotStore.Current;
-        string[] fallbackChain = snapshot.GetFallbackChain(normalizedLocale);
-        bool requestedLocaleExists = snapshot.HasLocale(normalizedLocale);
-
         GlyphLookupResult[] items = new GlyphLookupResult[keys.Count];
 
-        for (int i = 0; i < keys.Count; i++)
-        {
-            string key = keys[i];
-
-            items[i] = snapshot.GetUsingFallbackChain(
+        if (snapshot.TryGetPrecomputedFallbackChain(
                 locale,
-                normalizedLocale,
-                key,
-                fallbackChain,
-                requestedLocaleExists);
+                out string[] fallbackChain))
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                items[i] = snapshot.GetUsingPrecomputedFallbackChain(
+                    locale,
+                    keys[i],
+                    fallbackChain,
+                    requestedLocaleExists: true);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < keys.Count; i++)
+            {
+                items[i] = snapshot.GetUsingMissingLocaleFallbackToDefault(
+                    locale,
+                    keys[i]);
+            }
         }
 
         return new GlyphBatchLookupResult
         {
-            Locale = locale,
+            Locale = locale ?? string.Empty,
             SnapshotVersion = snapshot.Version,
             Items = items
         };
@@ -146,19 +145,5 @@ internal sealed class GlyphRuntime : IGlyph
             TotalEntryCount = current.TotalEntryCount,
             Errors = errors
         };
-    }
-
-    private static string ValidateLocaleArgument(string? locale)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(locale);
-
-        if (!GlyphLocaleNormalizer.TryNormalize(locale, out string normalizedLocale))
-        {
-            throw new ArgumentException(
-                $"Invalid locale '{locale}'.",
-                nameof(locale));
-        }
-
-        return normalizedLocale;
     }
 }

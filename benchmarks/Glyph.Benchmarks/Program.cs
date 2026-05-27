@@ -1,1 +1,4 @@
-﻿Console.WriteLine("Hello, World!");
+﻿using BenchmarkDotNet.Running;
+using Glyph.Benchmarks;
+
+BenchmarkRunner.Run<GlyphLookupBenchmarks>();

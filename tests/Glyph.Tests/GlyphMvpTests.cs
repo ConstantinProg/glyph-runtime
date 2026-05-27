@@ -447,15 +447,15 @@ public sealed class GlyphMvpTests
     }
 
     [Fact]
-    public async Task LocaleNormalization_WorksForFileNamesDefaultLocaleAndLookupInput()
+    public async Task LocaleNormalization_WorksForFileNamesAndDefaultLocale_ButNotLookupInput()
     {
         using TempLocalizationDirectory directory = new();
 
         directory.WriteJson("PT-br", """
-        {
-          "menu.play": "Jogar"
-        }
-        """);
+    {
+      "menu.play": "Jogar"
+    }
+    """);
 
         IGlyph glyph = await CreateGlyphAsync(
             directory,
@@ -464,9 +464,11 @@ public sealed class GlyphMvpTests
         GlyphLookupResult result = glyph.Get("pt-br", "menu.play");
         GlyphSnapshotInfo info = glyph.GetSnapshotInfo();
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("pt-br", result.Locale);
         Assert.Equal("pt-BR", result.ResolvedLocale);
+        Assert.Equal("Jogar", result.Value);
+
         Assert.Equal("pt-BR", info.DefaultLocale);
         Assert.Equal(["pt-BR"], info.Locales);
     }

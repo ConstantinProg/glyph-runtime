@@ -20,64 +20,68 @@ internal sealed class GlyphSnapshot
 
     public required DateTimeOffset CreatedAt { get; init; }
 
-    public bool HasLocale(string normalizedLocale)
+    public bool HasLocale(string? locale)
     {
-        return Tables.ContainsKey(normalizedLocale);
+        return locale is not null && Tables.ContainsKey(locale);
     }
 
-    public string[] GetFallbackChain(string normalizedLocale)
+    public bool TryGetPrecomputedFallbackChain(
+        string? locale,
+        out string[] fallbackChain)
     {
-        if (FallbackChains.TryGetValue(normalizedLocale, out string[]? chain))
+        if (locale is not null
+            && FallbackChains.TryGetValue(locale, out string[]? foundChain))
         {
-            return chain;
+            fallbackChain = foundChain;
+            return true;
         }
 
-        return BuildRuntimeFallbackChain(normalizedLocale);
+        fallbackChain = [];
+        return false;
     }
 
     public GlyphLookupResult Get(
-        string originalLocale,
-        string normalizedLocale,
-        string key)
+        string? originalLocale,
+        string? key)
     {
-        string[] fallbackChain = GetFallbackChain(normalizedLocale);
-        bool requestedLocaleExists = HasLocale(normalizedLocale);
+        if (TryGetPrecomputedFallbackChain(originalLocale, out string[] fallbackChain))
+        {
+            return GetUsingPrecomputedFallbackChain(
+                originalLocale,
+                key,
+                fallbackChain,
+                requestedLocaleExists: true);
+        }
 
-        return GetUsingFallbackChain(
+        return GetUsingMissingLocaleFallbackToDefault(
             originalLocale,
-            normalizedLocale,
-            key,
-            fallbackChain,
-            requestedLocaleExists);
+            key);
     }
 
-    public GlyphLookupResult GetUsingFallbackChain(
-        string originalLocale,
-        string normalizedLocale,
-        string key,
+    public GlyphLookupResult GetUsingPrecomputedFallbackChain(
+        string? originalLocale,
+        string? key,
         string[] fallbackChain,
         bool requestedLocaleExists)
     {
+        string resultLocale = originalLocale ?? string.Empty;
+        string resultKey = key ?? string.Empty;
+
         foreach (string currentLocale in fallbackChain)
         {
-            if (!Tables.TryGetValue(currentLocale, out FrozenDictionary<string, string>? table))
+            if (!TryResolve(currentLocale, key, out string? value))
             {
                 continue;
             }
 
-            if (!table.TryGetValue(key, out string? value))
-            {
-                continue;
-            }
-
-            GlyphLookupStatus status = currentLocale == normalizedLocale
+            GlyphLookupStatus status = currentLocale == originalLocale
                 ? GlyphLookupStatus.Found
                 : GlyphLookupStatus.FoundViaFallback;
 
             return new GlyphLookupResult(
                 status,
-                originalLocale,
-                key,
+                resultLocale,
+                resultKey,
                 value,
                 currentLocale,
                 Version);
@@ -89,40 +93,50 @@ internal sealed class GlyphSnapshot
 
         return new GlyphLookupResult(
             missingStatus,
-            originalLocale,
-            key,
+            resultLocale,
+            resultKey,
             null,
             null,
             Version);
     }
 
-    private string[] BuildRuntimeFallbackChain(string normalizedLocale)
+    public GlyphLookupResult GetUsingMissingLocaleFallbackToDefault(
+        string? originalLocale,
+        string? key)
     {
-        List<string> chain = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        string resultLocale = originalLocale ?? string.Empty;
+        string resultKey = key ?? string.Empty;
 
-        AddIfMissing(chain, seen, normalizedLocale);
-
-        string? neutralLocale = GlyphLocaleNormalizer.GetNeutralLocale(normalizedLocale);
-
-        if (neutralLocale is not null)
+        if (TryResolve(DefaultLocale, key, out string? defaultValue))
         {
-            AddIfMissing(chain, seen, neutralLocale);
+            return new GlyphLookupResult(
+                GlyphLookupStatus.FoundViaFallback,
+                resultLocale,
+                resultKey,
+                defaultValue,
+                DefaultLocale,
+                Version);
         }
 
-        AddIfMissing(chain, seen, DefaultLocale);
-
-        return chain.ToArray();
+        return new GlyphLookupResult(
+            GlyphLookupStatus.MissingLocale,
+            resultLocale,
+            resultKey,
+            null,
+            null,
+            Version);
     }
 
-    private static void AddIfMissing(
-        List<string> chain,
-        HashSet<string> seen,
-        string locale)
+    private bool TryResolve(
+        string? locale,
+        string? key,
+        out string? value)
     {
-        if (seen.Add(locale))
-        {
-            chain.Add(locale);
-        }
+        value = null;
+
+        return locale is not null
+            && key is not null
+            && Tables.TryGetValue(locale, out FrozenDictionary<string, string>? table)
+            && table.TryGetValue(key, out value);
     }
 }

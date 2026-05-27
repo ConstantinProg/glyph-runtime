@@ -1,7 +1,4 @@
-﻿using Glyph;
-using Xunit;
-
-namespace Glyph.Tests;
+﻿namespace Glyph.Tests;
 
 public sealed class GlyphRuntimeTests
 {
@@ -51,7 +48,22 @@ public sealed class GlyphRuntimeTests
     }
 
     [Fact]
-    public void Get_WhenRequestedLocaleMissingAndKeyMissing_ReturnsMissingLocale()
+    public void Get_WhenRequestedLocaleIsMissingAndDefaultContainsKey_ReturnsFoundViaFallback()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphLookupResult result = runtime.Get("de-DE", "menu.play");
+
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal("de-DE", result.Locale);
+        Assert.Equal("menu.play", result.Key);
+        Assert.Equal("Play", result.Value);
+        Assert.Equal("en", result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void Get_WhenRequestedLocaleIsMissingAndDefaultDoesNotContainKey_ReturnsMissingLocale()
     {
         GlyphRuntime runtime = CreateRuntime();
 
@@ -66,30 +78,97 @@ public sealed class GlyphRuntimeTests
     }
 
     [Fact]
-    public void Get_DoesNotThrowForMissingLocale()
+    public void Get_WhenLocaleHasInvalidFormat_DoesNotThrowAndFallsBackToDefaultLocale()
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        Exception? exception = Record.Exception(() => runtime.Get("de-DE", "menu.exit"));
+        GlyphLookupResult result = runtime.Get("invalid-locale-value", "menu.play");
 
-        Assert.Null(exception);
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal("invalid-locale-value", result.Locale);
+        Assert.Equal("menu.play", result.Key);
+        Assert.Equal("Play", result.Value);
+        Assert.Equal("en", result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
     }
 
     [Fact]
-    public void Get_ThrowsForInvalidArguments()
+    public void Get_WhenKeyHasInvalidFormat_DoesNotThrowAndReturnsMissingKey()
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        Assert.Throws<ArgumentNullException>(() => runtime.Get(null!, "menu.play"));
-        Assert.Throws<ArgumentException>(() => runtime.Get("", "menu.play"));
-        Assert.Throws<ArgumentNullException>(() => runtime.Get("en", null!));
-        Assert.Throws<ArgumentException>(() => runtime.Get("en", ""));
-        Assert.Throws<ArgumentException>(() => runtime.Get("invalid-locale-value", "menu.play"));
-        Assert.Throws<ArgumentException>(() => runtime.Get("en", "Menu.Play"));
+        GlyphLookupResult result = runtime.Get("en", "Menu.Play");
+
+        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal("en", result.Locale);
+        Assert.Equal("Menu.Play", result.Key);
+        Assert.Null(result.Value);
+        Assert.Null(result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
     }
 
     [Fact]
-    public void GetBatch_PreservesInputOrderAndOriginalKeys()
+    public void Get_WhenKeyIsEmpty_DoesNotThrowAndReturnsMissingKey()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphLookupResult result = runtime.Get("en", "");
+
+        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal("en", result.Locale);
+        Assert.Equal("", result.Key);
+        Assert.Null(result.Value);
+        Assert.Null(result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void Get_WhenKeyIsNull_DoesNotThrowAndReturnsMissingKey()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphLookupResult result = runtime.Get("en", null!);
+
+        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal("en", result.Locale);
+        Assert.Equal("", result.Key);
+        Assert.Null(result.Value);
+        Assert.Null(result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void Get_WhenLocaleIsNull_DoesNotThrowAndFallsBackToDefaultLocale()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphLookupResult result = runtime.Get(null!, "menu.play");
+
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal("", result.Locale);
+        Assert.Equal("menu.play", result.Key);
+        Assert.Equal("Play", result.Value);
+        Assert.Equal("en", result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void Get_WhenLocaleIsNotNormalized_DoesNotNormalizeAndFallsBackToDefaultLocale()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphLookupResult result = runtime.Get("ru-ru", "menu.play");
+
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal("ru-ru", result.Locale);
+        Assert.Equal("menu.play", result.Key);
+        Assert.Equal("Play", result.Value);
+        Assert.Equal("en", result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void GetBatch_PreservesInputOrder()
     {
         GlyphRuntime runtime = CreateRuntime();
 
@@ -99,73 +178,100 @@ public sealed class GlyphRuntimeTests
 
         Assert.Equal("ru-RU", result.Locale);
         Assert.Equal(1UL, result.SnapshotVersion);
+        Assert.Equal(3, result.Items.Length);
 
-        Assert.Collection(
-            result.Items,
-            item =>
-            {
-                Assert.Equal("menu.exit", item.Key);
-                Assert.Equal(GlyphLookupStatus.FoundViaFallback, item.Status);
-                Assert.Equal("Exit", item.Value);
-                Assert.Equal("en", item.ResolvedLocale);
-            },
-            item =>
-            {
-                Assert.Equal("menu.play", item.Key);
-                Assert.Equal(GlyphLookupStatus.Found, item.Status);
-                Assert.Equal("Играть", item.Value);
-                Assert.Equal("ru-RU", item.ResolvedLocale);
-            },
-            item =>
-            {
-                Assert.Equal("missing.key", item.Key);
-                Assert.Equal(GlyphLookupStatus.MissingKey, item.Status);
-                Assert.Null(item.Value);
-                Assert.Null(item.ResolvedLocale);
-            });
+        Assert.Equal("menu.exit", result.Items[0].Key);
+        Assert.Equal("Exit", result.Items[0].Value);
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Items[0].Status);
+
+        Assert.Equal("menu.play", result.Items[1].Key);
+        Assert.Equal("Играть", result.Items[1].Value);
+        Assert.Equal(GlyphLookupStatus.Found, result.Items[1].Status);
+
+        Assert.Equal("missing.key", result.Items[2].Key);
+        Assert.Null(result.Items[2].Value);
+        Assert.Equal(GlyphLookupStatus.MissingKey, result.Items[2].Status);
     }
 
     [Fact]
-    public void GetBatch_UsesSameSnapshotVersionForAllItems()
+    public void GetBatch_UsesSameSnapshotForAllItems()
     {
         GlyphRuntime runtime = CreateRuntime();
 
         GlyphBatchLookupResult result = runtime.GetBatch(
             "ru-RU",
-            ["menu.play", "menu.exit"]);
+            ["menu.play", "menu.exit", "missing.key"]);
 
-        Assert.All(result.Items, item =>
-        {
-            Assert.Equal(result.SnapshotVersion, item.SnapshotVersion);
-            Assert.Equal(1UL, item.SnapshotVersion);
-        });
+        Assert.All(
+            result.Items,
+            item => Assert.Equal(result.SnapshotVersion, item.SnapshotVersion));
     }
 
     [Fact]
-    public void GetBatch_KeepsOriginalInputLocaleInEachItem()
+    public void GetBatch_WhenRequestedLocaleIsMissing_FallsBackToDefaultLocale()
     {
         GlyphRuntime runtime = CreateRuntime();
 
         GlyphBatchLookupResult result = runtime.GetBatch(
-            "RU-ru",
-            ["menu.play", "menu.exit"]);
+            "de-DE",
+            ["menu.play", "missing.key"]);
 
-        Assert.Equal("RU-ru", result.Locale);
-        Assert.All(result.Items, item => Assert.Equal("RU-ru", item.Locale));
+        Assert.Equal("de-DE", result.Locale);
+        Assert.Equal(2, result.Items.Length);
+
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Items[0].Status);
+        Assert.Equal("Play", result.Items[0].Value);
+        Assert.Equal("en", result.Items[0].ResolvedLocale);
+
+        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Items[1].Status);
+        Assert.Null(result.Items[1].Value);
+        Assert.Null(result.Items[1].ResolvedLocale);
     }
 
     [Fact]
-    public void GetBatch_ThrowsForInvalidArguments()
+    public void GetBatch_WhenKeysContainInvalidEmptyAndNullItems_DoesNotThrow()
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        Assert.Throws<ArgumentNullException>(() => runtime.GetBatch(null!, ["menu.play"]));
-        Assert.Throws<ArgumentException>(() => runtime.GetBatch("", ["menu.play"]));
-        Assert.Throws<ArgumentNullException>(() => runtime.GetBatch("en", null!));
-        Assert.Throws<ArgumentNullException>(() => runtime.GetBatch("en", ["menu.play", null!]));
-        Assert.Throws<ArgumentException>(() => runtime.GetBatch("en", ["menu.play", ""]));
-        Assert.Throws<ArgumentException>(() => runtime.GetBatch("invalid-locale-value", ["menu.play"]));
-        Assert.Throws<ArgumentException>(() => runtime.GetBatch("en", ["Menu.Play"]));
+        GlyphBatchLookupResult result = runtime.GetBatch(
+            "en",
+            ["Menu.Play", "", null!]);
+
+        Assert.Equal(3, result.Items.Length);
+
+        Assert.All(
+            result.Items,
+            item => Assert.Equal(GlyphLookupStatus.MissingKey, item.Status));
+
+        Assert.Equal("Menu.Play", result.Items[0].Key);
+        Assert.Equal("", result.Items[1].Key);
+        Assert.Equal("", result.Items[2].Key);
+    }
+
+    [Fact]
+    public void GetBatch_WhenLocaleHasInvalidFormat_DoesNotThrowAndFallsBackToDefaultLocale()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphBatchLookupResult result = runtime.GetBatch(
+            "invalid-locale-value",
+            ["menu.play"]);
+
+        GlyphLookupResult item = Assert.Single(result.Items);
+
+        Assert.Equal("invalid-locale-value", result.Locale);
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, item.Status);
+        Assert.Equal("Play", item.Value);
+        Assert.Equal("en", item.ResolvedLocale);
+    }
+
+    [Fact]
+    public void GetBatch_WhenKeysCollectionIsNull_ThrowsArgumentNullException()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        Assert.Throws<ArgumentNullException>(
+            () => runtime.GetBatch("en", null!));
     }
 
     [Fact]

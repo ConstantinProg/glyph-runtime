@@ -49,7 +49,9 @@ public sealed class GlyphSnapshotBuilderTests
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
-        Assert.Contains(result.Errors, error => error.Code == GlyphErrorCodes.MissingDefaultLocale);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == GlyphErrorCodes.MissingDefaultLocale);
     }
 
     [Fact]
@@ -75,7 +77,9 @@ public sealed class GlyphSnapshotBuilderTests
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
-        Assert.Contains(result.Errors, error => error.Code == GlyphErrorCodes.InvalidLocale);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == GlyphErrorCodes.InvalidLocale);
     }
 
     [Fact]
@@ -103,7 +107,9 @@ public sealed class GlyphSnapshotBuilderTests
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
-        Assert.Contains(result.Errors, error => error.Code == GlyphErrorCodes.FallbackCycle);
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == GlyphErrorCodes.FallbackCycle);
     }
 
     [Fact]
@@ -129,9 +135,13 @@ public sealed class GlyphSnapshotBuilderTests
             oldSnapshotVersion: 1);
 
         Assert.True(result.Success);
+        Assert.NotNull(result.Snapshot);
 
-        string[] chain = result.Snapshot!.GetFallbackChain("ru-RU");
+        bool found = result.Snapshot.TryGetPrecomputedFallbackChain(
+            "ru-RU",
+            out string[] chain);
 
+        Assert.True(found);
         Assert.Equal(["ru-RU", "ru", "en"], chain);
     }
 
