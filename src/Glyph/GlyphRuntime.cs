@@ -24,7 +24,10 @@ internal sealed class GlyphRuntime : IGlyph
 
         GlyphSnapshot snapshot = _snapshotStore.Current;
 
-        return snapshot.Get(locale, normalizedLocale, key);
+        return snapshot.Get(
+            originalLocale: locale,
+            normalizedLocale: normalizedLocale,
+            key: key);
     }
 
     public GlyphBatchLookupResult GetBatch(
@@ -34,6 +37,11 @@ internal sealed class GlyphRuntime : IGlyph
         string normalizedLocale = ValidateLocaleArgument(locale);
         ArgumentNullException.ThrowIfNull(keys);
 
+        for (int i = 0; i < keys.Count; i++)
+        {
+            GlyphKeyValidator.ValidateArgument(keys[i]);
+        }
+
         GlyphSnapshot snapshot = _snapshotStore.Current;
         string[] fallbackChain = snapshot.GetFallbackChain(normalizedLocale);
         bool requestedLocaleExists = snapshot.HasLocale(normalizedLocale);
@@ -42,16 +50,14 @@ internal sealed class GlyphRuntime : IGlyph
 
         for (int i = 0; i < keys.Count; i++)
         {
-            string? key = keys[i];
-
-            GlyphKeyValidator.ValidateArgument(key);
+            string key = keys[i];
 
             items[i] = snapshot.GetUsingFallbackChain(
-                locale,
-                normalizedLocale,
-                key,
-                fallbackChain,
-                requestedLocaleExists);
+                originalLocale: locale,
+                normalizedLocale: normalizedLocale,
+                key: key,
+                fallbackChain: fallbackChain,
+                requestedLocaleExists: requestedLocaleExists);
         }
 
         return new GlyphBatchLookupResult
