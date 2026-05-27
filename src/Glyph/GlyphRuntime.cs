@@ -3,21 +3,32 @@ namespace Glyph;
 internal sealed class GlyphRuntime : IGlyph
 {
     private readonly GlyphSnapshotStore _snapshotStore;
+    private readonly string _resourcesPath;
+    private readonly string _defaultLocale;
+    private readonly IReadOnlyDictionary<string, string[]> _fallbacks;
+    private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
-    public GlyphRuntime(GlyphSnapshotStore snapshotStore)
+    public GlyphRuntime(
+        GlyphSnapshotStore snapshotStore,
+        string resourcesPath,
+        string defaultLocale,
+        IReadOnlyDictionary<string, string[]> fallbacks)
     {
         ArgumentNullException.ThrowIfNull(snapshotStore);
+        ArgumentNullException.ThrowIfNull(resourcesPath);
+        ArgumentNullException.ThrowIfNull(defaultLocale);
+        ArgumentNullException.ThrowIfNull(fallbacks);
 
         _snapshotStore = snapshotStore;
+        _resourcesPath = resourcesPath;
+        _defaultLocale = defaultLocale;
+        _fallbacks = fallbacks;
     }
 
     public GlyphLookupResult Get(
         string locale,
         string key)
     {
-        ArgumentException.ThrowIfNullOrEmpty(locale);
-        ArgumentException.ThrowIfNullOrEmpty(key);
-
         GlyphSnapshot snapshot = _snapshotStore.Current;
 
         return snapshot.Get(locale, key);
@@ -27,7 +38,6 @@ internal sealed class GlyphRuntime : IGlyph
         string locale,
         IReadOnlyList<string> keys)
     {
-        ArgumentException.ThrowIfNullOrEmpty(locale);
         ArgumentNullException.ThrowIfNull(keys);
 
         GlyphSnapshot snapshot = _snapshotStore.Current;
@@ -40,7 +50,7 @@ internal sealed class GlyphRuntime : IGlyph
         {
             string? key = keys[i];
 
-            ArgumentException.ThrowIfNullOrEmpty(key);
+            GlyphKeyValidator.ValidateArgument(key);
 
             items[i] = snapshot.GetUsingFallbackChain(
                 originalLocale: locale,
@@ -73,31 +83,89 @@ internal sealed class GlyphRuntime : IGlyph
         };
     }
 
-    public ValueTask<GlyphReloadResult> ReloadAsync(
+    public async ValueTask<GlyphReloadResult> ReloadAsync(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphSnapshot snapshot = _snapshotStore.Current;
+        await _reloadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        GlyphReloadResult result = new()
+        try
+        {
+            GlyphSnapshot current = _snapshotStore.Current;
+            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_resourcesPath);
+
+            if (!loadResult.Success)
+            {
+                return CreateFailedReloadResult(current, loadResult.Errors);
+            }
+
+            if (!loadResult.Resources.Any(resource => resource.Locale == _defaultLocale))
+            {
+                return CreateFailedReloadResult(
+                    current,
+                    [
+                        new GlyphReloadError
+                        {
+                            Code = GlyphErrorCodes.MissingDefaultLocale,
+                            Message = "Default locale file was not found.",
+                            Locale = _defaultLocale
+                        }
+                    ]);
+            }
+
+            GlyphSnapshot next = GlyphSnapshot.Create(
+                version: current.Version + 1,
+                defaultLocale: _defaultLocale,
+                resources: loadResult.Resources,
+                fallbacks: _fallbacks,
+                createdAt: DateTimeOffset.UtcNow);
+
+            _snapshotStore.Swap(next);
+
+            return new GlyphReloadResult
+            {
+                Success = true,
+                OldVersion = current.Version,
+                NewVersion = next.Version,
+                LocaleCount = next.Locales.Count,
+                UniqueKeyCount = next.UniqueKeyCount,
+                TotalEntryCount = next.TotalEntryCount
+            };
+        }
+        finally
+        {
+            _reloadLock.Release();
+        }
+    }
+
+    private static GlyphReloadResult CreateFailedReloadResult(
+        GlyphSnapshot current,
+        IReadOnlyList<GlyphReloadError> errors)
+    {
+        return new GlyphReloadResult
         {
             Success = false,
-            OldVersion = snapshot.Version,
-            NewVersion = snapshot.Version,
-            LocaleCount = snapshot.Locales.Count,
-            UniqueKeyCount = snapshot.UniqueKeyCount,
-            TotalEntryCount = snapshot.TotalEntryCount,
-            Errors =
-            [
-                new GlyphReloadError
-                {
-                    Code = GlyphErrorCodes.NotImplemented,
-                    Message = "JSON loader is not implemented in this runtime step."
-                }
-            ]
+            OldVersion = current.Version,
+            NewVersion = current.Version,
+            LocaleCount = current.Locales.Count,
+            UniqueKeyCount = current.UniqueKeyCount,
+            TotalEntryCount = current.TotalEntryCount,
+            Errors = errors
         };
+    }
 
-        return ValueTask.FromResult(result);
+    private static string ValidateLocaleArgument(string? locale)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(locale);
+
+        if (!GlyphLocaleNormalizer.TryNormalize(locale, out string normalizedLocale))
+        {
+            throw new ArgumentException(
+                $"Invalid locale '{locale}'.",
+                nameof(locale));
+        }
+
+        return normalizedLocale;
     }
 }
