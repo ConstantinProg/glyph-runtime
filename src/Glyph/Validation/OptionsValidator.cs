@@ -1,12 +1,14 @@
-﻿namespace Glyph;
+﻿using Glyph.Contracts;
 
-internal static class GlyphOptionsValidator
+namespace Glyph.Validation;
+
+internal static class OptionsValidator
 {
-    public static GlyphOptionsValidationResult Validate(GlyphOptions options)
+    public static OptionsValidationResult Validate(GlyphOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        List<GlyphReloadError> errors = [];
+        List<ReloadError> errors = [];
 
         string resourcesPath = ValidateResourcesPath(options, errors);
         string defaultLocale = ValidateDefaultLocale(options, errors);
@@ -14,7 +16,7 @@ internal static class GlyphOptionsValidator
 
         ValidateFallbackCycles(fallbacks, errors);
 
-        return new GlyphOptionsValidationResult
+        return new OptionsValidationResult
         {
             Success = errors.Count == 0,
             ResourcesPath = resourcesPath,
@@ -26,13 +28,13 @@ internal static class GlyphOptionsValidator
 
     private static string ValidateResourcesPath(
         GlyphOptions options,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         if (string.IsNullOrWhiteSpace(options.ResourcesPath))
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidOptions,
+                Code = ErrorCodes.InvalidOptions,
                 Message = "ResourcesPath must not be null, empty, or whitespace."
             });
 
@@ -44,15 +46,15 @@ internal static class GlyphOptionsValidator
 
     private static string ValidateDefaultLocale(
         GlyphOptions options,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
-        if (!GlyphLocaleNormalizer.TryNormalize(
+        if (!LocaleNormalizer.TryNormalize(
                 options.DefaultLocale,
                 out string normalizedDefaultLocale))
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidLocale,
+                Code = ErrorCodes.InvalidLocale,
                 Message = "DefaultLocale is invalid.",
                 Locale = options.DefaultLocale
             });
@@ -65,15 +67,15 @@ internal static class GlyphOptionsValidator
 
     private static Dictionary<string, string[]> ValidateFallbacks(
         GlyphOptions options,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         Dictionary<string, string[]> normalizedFallbacks = new(StringComparer.Ordinal);
 
         if (options.Fallbacks is null)
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidOptions,
+                Code = ErrorCodes.InvalidOptions,
                 Message = "Fallbacks must not be null."
             });
 
@@ -82,11 +84,11 @@ internal static class GlyphOptionsValidator
 
         foreach (KeyValuePair<string, string[]> pair in options.Fallbacks)
         {
-            if (!GlyphLocaleNormalizer.TryNormalize(pair.Key, out string normalizedLocale))
+            if (!LocaleNormalizer.TryNormalize(pair.Key, out string normalizedLocale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidLocale,
+                    Code = ErrorCodes.InvalidLocale,
                     Message = "Fallback source locale is invalid.",
                     Locale = pair.Key
                 });
@@ -96,9 +98,9 @@ internal static class GlyphOptionsValidator
 
             if (pair.Value is null)
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidOptions,
+                    Code = ErrorCodes.InvalidOptions,
                     Message = "Fallback locale array must not be null.",
                     Locale = normalizedLocale
                 });
@@ -112,13 +114,13 @@ internal static class GlyphOptionsValidator
             {
                 string? fallbackLocale = pair.Value[i];
 
-                if (!GlyphLocaleNormalizer.TryNormalize(
+                if (!LocaleNormalizer.TryNormalize(
                         fallbackLocale,
                         out string normalizedFallbackLocale))
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidLocale,
+                        Code = ErrorCodes.InvalidLocale,
                         Message = $"Fallback locale item at index {i} is invalid.",
                         Locale = fallbackLocale
                     });
@@ -137,7 +139,7 @@ internal static class GlyphOptionsValidator
 
     private static void ValidateFallbackCycles(
         IReadOnlyDictionary<string, string[]> fallbacks,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         Dictionary<string, VisitState> states = new(StringComparer.Ordinal);
 
@@ -145,9 +147,9 @@ internal static class GlyphOptionsValidator
         {
             if (HasCycle(locale, fallbacks, states))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.FallbackCycle,
+                    Code = ErrorCodes.FallbackCycle,
                     Message = "Fallback configuration contains a cycle.",
                     Locale = locale
                 });

@@ -1,6 +1,6 @@
-namespace Glyph;
+namespace Glyph.Loading;
 
-internal sealed class GlyphLocaleResource
+internal sealed class LocaleResource
 {
     public required string Locale { get; init; }
 

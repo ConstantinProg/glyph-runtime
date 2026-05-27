@@ -1,6 +1,8 @@
-namespace Glyph;
+using Glyph.Contracts;
 
-internal sealed class GlyphOptionsValidationResult
+namespace Glyph.Validation;
+
+internal sealed class OptionsValidationResult
 {
     public required bool Success { get; init; }
 
@@ -11,5 +13,5 @@ internal sealed class GlyphOptionsValidationResult
     public IReadOnlyDictionary<string, string[]> Fallbacks { get; init; } =
         new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-    public IReadOnlyList<GlyphReloadError> Errors { get; init; } = [];
+    public IReadOnlyList<ReloadError> Errors { get; init; } = [];
 }

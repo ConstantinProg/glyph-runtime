@@ -1,3 +1,7 @@
+using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+
 namespace Glyph.Tests;
 
 public sealed class GlyphSnapshotStoreTests
@@ -5,10 +9,10 @@ public sealed class GlyphSnapshotStoreTests
     [Fact]
     public void Current_ReturnsInitialSnapshot()
     {
-        GlyphSnapshot snapshot = CreateSnapshot(oldVersion: 0);
-        GlyphSnapshotStore store = new(snapshot);
+        Snapshot snapshot = CreateSnapshot(oldVersion: 0);
+        SnapshotStore store = new(snapshot);
 
-        GlyphSnapshot current = store.Current;
+        Snapshot current = store.Current;
 
         Assert.Same(snapshot, current);
         Assert.Equal<ulong>(1, current.Version);
@@ -17,10 +21,10 @@ public sealed class GlyphSnapshotStoreTests
     [Fact]
     public void Swap_PublishesNewSnapshot()
     {
-        GlyphSnapshot first = CreateSnapshot(oldVersion: 0);
-        GlyphSnapshot second = CreateSnapshot(oldVersion: 1);
+        Snapshot first = CreateSnapshot(oldVersion: 0);
+        Snapshot second = CreateSnapshot(oldVersion: 1);
 
-        GlyphSnapshotStore store = new(first);
+        SnapshotStore store = new(first);
 
         store.Swap(second);
 
@@ -28,7 +32,7 @@ public sealed class GlyphSnapshotStoreTests
         Assert.Equal<ulong>(2, store.Current.Version);
     }
 
-    private static GlyphSnapshot CreateSnapshot(ulong oldVersion)
+    private static Snapshot CreateSnapshot(ulong oldVersion)
     {
         GlyphOptions options = new()
         {
@@ -36,10 +40,10 @@ public sealed class GlyphSnapshotStoreTests
             DefaultLocale = "en"
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [
-                new GlyphLocaleResource
+                new LocaleResource
                 {
                     Locale = "en",
                     SourceName = "en.json",

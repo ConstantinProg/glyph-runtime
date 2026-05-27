@@ -1,9 +1,9 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Describes the currently active localization snapshot.
 /// </summary>
-public sealed class GlyphSnapshotInfo
+public sealed class SnapshotInfo
 {
     /// <summary>
     /// Gets the snapshot version.

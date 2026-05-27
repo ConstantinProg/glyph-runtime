@@ -1,4 +1,8 @@
-﻿namespace Glyph.Tests;
+﻿using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+
+namespace Glyph.Tests;
 
 public sealed class GlyphMvpTests
 {
@@ -20,7 +24,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.True(result.Success);
         Assert.Empty(result.Errors);
@@ -40,11 +44,11 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphLookupResult result = glyph.Get("en", "menu.play");
+        LookupResult result = glyph.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(LookupStatus.Found, result.Status);
         Assert.Equal("en", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -74,16 +78,16 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(
+        IGlyphRuntime glyph = await CreateGlyphAsync(
             directory,
             fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = ["ru", "en"]
             });
 
-        GlyphLookupResult result = glyph.Get("ru-RU", "menu.play");
+        LookupResult result = glyph.Get("ru-RU", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("Играть", result.Value);
         Assert.Equal("ru", result.ResolvedLocale);
         Assert.True(result.FallbackUsed);
@@ -100,11 +104,11 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphLookupResult result = glyph.Get("en", "menu.missing");
+        LookupResult result = glyph.Get("en", "menu.missing");
 
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Status);
         Assert.Null(result.Value);
         Assert.Null(result.ResolvedLocale);
     }
@@ -120,11 +124,11 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphLookupResult result = glyph.Get("fr", "menu.missing");
+        LookupResult result = glyph.Get("fr", "menu.missing");
 
-        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Status);
+        Assert.Equal(LookupStatus.MissingLocale, result.Status);
         Assert.Null(result.Value);
         Assert.Null(result.ResolvedLocale);
     }
@@ -142,9 +146,9 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphBatchLookupResult result = glyph.GetBatch(
+        BatchLookupResult result = glyph.GetBatch(
             "en",
             ["third", "first", "second"]);
 
@@ -165,9 +169,9 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphBatchLookupResult result = glyph.GetBatch(
+        BatchLookupResult result = glyph.GetBatch(
             "en",
             ["first", "second", "third"]);
 
@@ -199,11 +203,11 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(
+        IGlyphRuntime glyph = await CreateGlyphAsync(
             directory,
             defaultLocale: "EN");
 
-        GlyphSnapshotInfo info = glyph.GetSnapshotInfo();
+        SnapshotInfo info = glyph.GetSnapshotInfo();
 
         Assert.Equal("en", info.DefaultLocale);
         Assert.Equal(["en", "pt-BR", "ru-RU"], info.Locales);
@@ -222,7 +226,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -230,8 +234,8 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        GlyphReloadResult reload = await glyph.ReloadAsync();
-        GlyphLookupResult result = glyph.Get("en", "menu.play");
+        ReloadResult reload = await glyph.ReloadAsync();
+        LookupResult result = glyph.Get("en", "menu.play");
 
         Assert.True(reload.Success);
         Assert.Equal(1UL, reload.OldVersion);
@@ -251,7 +255,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -261,17 +265,17 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        GlyphReloadResult reload = await glyph.ReloadAsync();
-        GlyphLookupResult result = glyph.Get("en", "menu.play");
+        ReloadResult reload = await glyph.ReloadAsync();
+        LookupResult result = glyph.Get("en", "menu.play");
 
         Assert.False(reload.Success);
         Assert.Equal(1UL, reload.OldVersion);
         Assert.Equal(1UL, reload.NewVersion);
         Assert.Contains(
             reload.Errors,
-            error => error.Code == GlyphErrorCodes.NestedObjectNotSupported);
+            error => error.Code == ErrorCodes.NestedObjectNotSupported);
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(LookupStatus.Found, result.Status);
         Assert.Equal("Play", result.Value);
         Assert.Equal(1UL, result.SnapshotVersion);
     }
@@ -287,7 +291,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -305,7 +309,7 @@ public sealed class GlyphMvpTests
 
                 for (int i = 0; i < 10_000; i++)
                 {
-                    GlyphLookupResult result = glyph.Get("en", "menu.play");
+                    LookupResult result = glyph.Get("en", "menu.play");
 
                     Assert.True(result.Found);
                     Assert.NotNull(result.Value);
@@ -313,7 +317,7 @@ public sealed class GlyphMvpTests
             }))
             .ToArray();
 
-        Task<GlyphReloadResult> reloadTask = Task.Run(async () =>
+        Task<ReloadResult> reloadTask = Task.Run(async () =>
         {
             start.Wait();
             return await glyph.ReloadAsync();
@@ -322,7 +326,7 @@ public sealed class GlyphMvpTests
         start.Set();
 
         await Task.WhenAll(lookupTasks);
-        GlyphReloadResult reload = await reloadTask;
+        ReloadResult reload = await reloadTask;
 
         Assert.True(reload.Success);
     }
@@ -342,7 +346,7 @@ public sealed class GlyphMvpTests
             await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await CreateGlyphAsync(directory, defaultLocale: "en"));
 
-        Assert.Contains(GlyphErrorCodes.MissingDefaultLocale, exception.Message);
+        Assert.Contains(ErrorCodes.MissingDefaultLocale, exception.Message);
     }
 
     [Fact]
@@ -362,7 +366,7 @@ public sealed class GlyphMvpTests
             await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await CreateGlyphAsync(directory));
 
-        Assert.Contains(GlyphErrorCodes.NestedObjectNotSupported, exception.Message);
+        Assert.Contains(ErrorCodes.NestedObjectNotSupported, exception.Message);
     }
 
     [Fact]
@@ -377,12 +381,12 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.DuplicateKey);
+            error => error.Code == ErrorCodes.DuplicateKey);
     }
 
     [Fact]
@@ -393,7 +397,7 @@ public sealed class GlyphMvpTests
             DefaultLocale = "en"
         };
 
-        GlyphLocaleResource[] resources =
+        LocaleResource[] resources =
         [
             new()
             {
@@ -415,7 +419,7 @@ public sealed class GlyphMvpTests
             }
         ];
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             resources,
             oldSnapshotVersion: 0);
@@ -424,7 +428,7 @@ public sealed class GlyphMvpTests
         Assert.Null(result.Snapshot);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.DuplicateLocale);
+            error => error.Code == ErrorCodes.DuplicateLocale);
     }
 
     [Fact]
@@ -438,12 +442,12 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.EmptyKey);
+            error => error.Code == ErrorCodes.EmptyKey);
     }
 
     [Fact]
@@ -457,14 +461,14 @@ public sealed class GlyphMvpTests
     }
     """);
 
-        IGlyph glyph = await CreateGlyphAsync(
+        IGlyphRuntime glyph = await CreateGlyphAsync(
             directory,
             defaultLocale: "pt-BR");
 
-        GlyphLookupResult result = glyph.Get("pt-br", "menu.play");
-        GlyphSnapshotInfo info = glyph.GetSnapshotInfo();
+        LookupResult result = glyph.Get("pt-br", "menu.play");
+        SnapshotInfo info = glyph.GetSnapshotInfo();
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("pt-br", result.Locale);
         Assert.Equal("pt-BR", result.ResolvedLocale);
         Assert.Equal("Jogar", result.Value);
@@ -500,7 +504,7 @@ public sealed class GlyphMvpTests
                         ["ru"] = ["en"]
                     }));
 
-        Assert.Contains(GlyphErrorCodes.FallbackCycle, exception.Message);
+        Assert.Contains(ErrorCodes.FallbackCycle, exception.Message);
     }
 
     [Fact]
@@ -514,11 +518,11 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyph glyph = await CreateGlyphAsync(directory);
+        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
 
-        GlyphLookupResult result = glyph.Get("en", "empty.allowed");
+        LookupResult result = glyph.Get("en", "empty.allowed");
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(LookupStatus.Found, result.Status);
         Assert.Equal(string.Empty, result.Value);
         Assert.Equal("en", result.ResolvedLocale);
     }
@@ -532,15 +536,15 @@ public sealed class GlyphMvpTests
             "en.json",
             [0x7B, 0x22, 0x6B, 0x22, 0x3A, 0x22, 0xFF, 0x22, 0x7D]);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.InvalidEncoding);
+            error => error.Code == ErrorCodes.InvalidEncoding);
     }
 
-    private static async ValueTask<IGlyph> CreateGlyphAsync(
+    private static async ValueTask<IGlyphRuntime> CreateGlyphAsync(
         TempLocalizationDirectory directory,
         string defaultLocale = "en",
         Dictionary<string, string[]>? fallbacks = null)

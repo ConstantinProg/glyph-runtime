@@ -1,14 +1,17 @@
-namespace Glyph;
+using Glyph.Contracts;
+using Glyph.Loading;
 
-internal sealed class GlyphRuntime : IGlyph
+namespace Glyph.Runtime;
+
+internal sealed class GlyphRuntime : IGlyphRuntime
 {
-    private readonly GlyphSnapshotStore _snapshotStore;
-    private readonly GlyphRuntimeConfiguration _configuration;
+    private readonly SnapshotStore _snapshotStore;
+    private readonly RuntimeConfiguration _configuration;
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
     public GlyphRuntime(
-        GlyphSnapshotStore snapshotStore,
-        GlyphRuntimeConfiguration configuration)
+        SnapshotStore snapshotStore,
+        RuntimeConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(snapshotStore);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -17,21 +20,21 @@ internal sealed class GlyphRuntime : IGlyph
         _configuration = configuration;
     }
 
-    public GlyphLookupResult Get(string locale, string key)
+    public LookupResult Get(string locale, string key)
     {
-        GlyphSnapshot snapshot = _snapshotStore.Current;
+        Snapshot snapshot = _snapshotStore.Current;
 
         return snapshot.Get(locale, key);
     }
 
-    public GlyphBatchLookupResult GetBatch(
+    public BatchLookupResult GetBatch(
         string locale,
         IReadOnlyList<string> keys)
     {
         ArgumentNullException.ThrowIfNull(keys);
 
-        GlyphSnapshot snapshot = _snapshotStore.Current;
-        GlyphLookupResult[] items = new GlyphLookupResult[keys.Count];
+        Snapshot snapshot = _snapshotStore.Current;
+        LookupResult[] items = new LookupResult[keys.Count];
 
         if (snapshot.TryGetPrecomputedFallbackChain(
                 locale,
@@ -55,7 +58,7 @@ internal sealed class GlyphRuntime : IGlyph
             }
         }
 
-        return new GlyphBatchLookupResult
+        return new BatchLookupResult
         {
             Locale = locale ?? string.Empty,
             SnapshotVersion = snapshot.Version,
@@ -63,11 +66,11 @@ internal sealed class GlyphRuntime : IGlyph
         };
     }
 
-    public GlyphSnapshotInfo GetSnapshotInfo()
+    public SnapshotInfo GetSnapshotInfo()
     {
-        GlyphSnapshot snapshot = _snapshotStore.Current;
+        Snapshot snapshot = _snapshotStore.Current;
 
-        return new GlyphSnapshotInfo
+        return new SnapshotInfo
         {
             Version = snapshot.Version,
             DefaultLocale = snapshot.DefaultLocale,
@@ -78,7 +81,7 @@ internal sealed class GlyphRuntime : IGlyph
         };
     }
 
-    public async ValueTask<GlyphReloadResult> ReloadAsync(
+    public async ValueTask<ReloadResult> ReloadAsync(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -89,8 +92,8 @@ internal sealed class GlyphRuntime : IGlyph
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            GlyphSnapshot current = _snapshotStore.Current;
-            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_configuration.ResourcesPath);
+            Snapshot current = _snapshotStore.Current;
+            LoadResult loadResult = JsonResourceLoader.Load(_configuration.ResourcesPath);
 
             if (!loadResult.Success)
             {
@@ -99,7 +102,7 @@ internal sealed class GlyphRuntime : IGlyph
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+            SnapshotBuildResult buildResult = SnapshotBuilder.Build(
                 _configuration.ToGlyphOptions(),
                 loadResult.Resources,
                 current.Version);
@@ -111,10 +114,10 @@ internal sealed class GlyphRuntime : IGlyph
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            GlyphSnapshot next = buildResult.Snapshot;
+            Snapshot next = buildResult.Snapshot;
             _snapshotStore.Swap(next);
 
-            return new GlyphReloadResult
+            return new ReloadResult
             {
                 Success = true,
                 OldVersion = current.Version,
@@ -130,11 +133,11 @@ internal sealed class GlyphRuntime : IGlyph
         }
     }
 
-    private static GlyphReloadResult CreateFailedReloadResult(
-        GlyphSnapshot current,
-        IReadOnlyList<GlyphReloadError> errors)
+    private static ReloadResult CreateFailedReloadResult(
+        Snapshot current,
+        IReadOnlyList<ReloadError> errors)
     {
-        return new GlyphReloadResult
+        return new ReloadResult
         {
             Success = false,
             OldVersion = current.Version,

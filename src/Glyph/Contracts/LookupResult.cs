@@ -1,4 +1,4 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Represents the result of a single localization lookup.
@@ -9,8 +9,8 @@ namespace Glyph;
 /// <param name="Value">The localized value, or <see langword="null"/> when lookup failed.</param>
 /// <param name="ResolvedLocale">The normalized locale where the value was found, or <see langword="null"/> when lookup failed.</param>
 /// <param name="SnapshotVersion">The snapshot version used during lookup.</param>
-public readonly record struct GlyphLookupResult(
-    GlyphLookupStatus Status,
+public readonly record struct LookupResult(
+    LookupStatus Status,
     string Locale,
     string Key,
     string? Value,
@@ -20,10 +20,10 @@ public readonly record struct GlyphLookupResult(
     /// <summary>
     /// Gets a value indicating whether the lookup found a value.
     /// </summary>
-    public bool Found => Status is GlyphLookupStatus.Found or GlyphLookupStatus.FoundViaFallback;
+    public bool Found => Status is LookupStatus.Found or LookupStatus.FoundViaFallback;
 
     /// <summary>
     /// Gets a value indicating whether the value was resolved through a fallback locale.
     /// </summary>
-    public bool FallbackUsed => Status is GlyphLookupStatus.FoundViaFallback;
+    public bool FallbackUsed => Status is LookupStatus.FoundViaFallback;
 }

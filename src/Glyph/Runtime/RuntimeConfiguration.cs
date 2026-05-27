@@ -1,6 +1,9 @@
-﻿namespace Glyph;
+﻿using Glyph.Contracts;
+using Glyph.Validation;
 
-internal sealed class GlyphRuntimeConfiguration
+namespace Glyph.Runtime;
+
+internal sealed class RuntimeConfiguration
 {
     public required string ResourcesPath { get; init; }
 
@@ -8,8 +11,8 @@ internal sealed class GlyphRuntimeConfiguration
 
     public required IReadOnlyDictionary<string, string[]> Fallbacks { get; init; }
 
-    public static GlyphRuntimeConfiguration From(
-        GlyphOptionsValidationResult validationResult)
+    public static RuntimeConfiguration From(
+        OptionsValidationResult validationResult)
     {
         ArgumentNullException.ThrowIfNull(validationResult);
 
@@ -20,7 +23,7 @@ internal sealed class GlyphRuntimeConfiguration
             fallbacks[pair.Key] = pair.Value.ToArray();
         }
 
-        return new GlyphRuntimeConfiguration
+        return new RuntimeConfiguration
         {
             ResourcesPath = validationResult.ResourcesPath,
             DefaultLocale = validationResult.DefaultLocale,

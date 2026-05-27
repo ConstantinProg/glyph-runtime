@@ -1,30 +1,32 @@
+using Glyph.Contracts;
+using Glyph.Validation;
 using System.Text;
 using System.Text.Json;
 
-namespace Glyph;
+namespace Glyph.Loading;
 
-internal static class GlyphJsonResourceLoader
+internal static class JsonResourceLoader
 {
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
-    public static GlyphLoadResult Load(string resourcesPath)
+    public static LoadResult Load(string resourcesPath)
     {
         if (string.IsNullOrWhiteSpace(resourcesPath))
         {
-            return Failure(new GlyphReloadError
+            return Failure(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidOptions,
+                Code = ErrorCodes.InvalidOptions,
                 Message = "ResourcesPath must not be null, empty, or whitespace."
             });
         }
 
         if (!Directory.Exists(resourcesPath))
         {
-            return Failure(new GlyphReloadError
+            return Failure(new ReloadError
             {
-                Code = GlyphErrorCodes.ResourcesPathNotFound,
+                Code = ErrorCodes.ResourcesPathNotFound,
                 Message = "ResourcesPath does not exist.",
                 SourceName = resourcesPath
             });
@@ -37,16 +39,16 @@ internal static class GlyphJsonResourceLoader
 
         if (files.Length == 0)
         {
-            return Failure(new GlyphReloadError
+            return Failure(new ReloadError
             {
-                Code = GlyphErrorCodes.NoJsonFiles,
+                Code = ErrorCodes.NoJsonFiles,
                 Message = "ResourcesPath does not contain localization JSON files.",
                 SourceName = resourcesPath
             });
         }
 
-        List<GlyphLocaleResource> resources = [];
-        List<GlyphReloadError> errors = [];
+        List<LocaleResource> resources = [];
+        List<ReloadError> errors = [];
         HashSet<string> locales = new(StringComparer.Ordinal);
 
         foreach (string file in files)
@@ -54,11 +56,11 @@ internal static class GlyphJsonResourceLoader
             string sourceName = Path.GetFileName(file);
             string rawLocale = Path.GetFileNameWithoutExtension(file);
 
-            if (!GlyphLocaleNormalizer.TryNormalize(rawLocale, out string locale))
+            if (!LocaleNormalizer.TryNormalize(rawLocale, out string locale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidLocale,
+                    Code = ErrorCodes.InvalidLocale,
                     Message = "Localization file name contains invalid locale.",
                     SourceName = sourceName,
                     Locale = rawLocale
@@ -68,9 +70,9 @@ internal static class GlyphJsonResourceLoader
 
             if (!locales.Add(locale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.DuplicateLocale,
+                    Code = ErrorCodes.DuplicateLocale,
                     Message = "Duplicate locale after normalization.",
                     SourceName = sourceName,
                     Locale = locale
@@ -79,7 +81,7 @@ internal static class GlyphJsonResourceLoader
                 continue;
             }
 
-            GlyphLocaleResource? resource = LoadFile(file, sourceName, locale, errors);
+            LocaleResource? resource = LoadFile(file, sourceName, locale, errors);
 
             if (resource is not null)
             {
@@ -87,7 +89,7 @@ internal static class GlyphJsonResourceLoader
             }
         }
 
-        return new GlyphLoadResult
+        return new LoadResult
         {
             Success = errors.Count == 0,
             Resources = resources,
@@ -95,11 +97,11 @@ internal static class GlyphJsonResourceLoader
         };
     }
 
-    private static GlyphLocaleResource? LoadFile(
+    private static LocaleResource? LoadFile(
         string filePath,
         string sourceName,
         string locale,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         byte[] bytes;
 
@@ -109,9 +111,9 @@ internal static class GlyphJsonResourceLoader
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidOptions,
+                Code = ErrorCodes.InvalidOptions,
                 Message = exception.Message,
                 SourceName = sourceName,
                 Locale = locale
@@ -124,9 +126,9 @@ internal static class GlyphJsonResourceLoader
 
         if (!IsValidUtf8(json))
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidEncoding,
+                Code = ErrorCodes.InvalidEncoding,
                 Message = "Localization file is not valid UTF-8.",
                 SourceName = sourceName,
                 Locale = locale
@@ -148,9 +150,9 @@ internal static class GlyphJsonResourceLoader
         {
             if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidJson,
+                    Code = ErrorCodes.InvalidJson,
                     Message = "Localization file must contain a flat JSON object.",
                     SourceName = sourceName,
                     Locale = locale
@@ -165,9 +167,9 @@ internal static class GlyphJsonResourceLoader
                 {
                     if (reader.Read())
                     {
-                        errors.Add(new GlyphReloadError
+                        errors.Add(new ReloadError
                         {
-                            Code = GlyphErrorCodes.InvalidJson,
+                            Code = ErrorCodes.InvalidJson,
                             Message = "Unexpected JSON content after root object.",
                             SourceName = sourceName,
                             Locale = locale
@@ -176,7 +178,7 @@ internal static class GlyphJsonResourceLoader
                         return null;
                     }
 
-                    return new GlyphLocaleResource
+                    return new LocaleResource
                     {
                         Locale = locale,
                         SourceName = sourceName,
@@ -186,9 +188,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (reader.TokenType != JsonTokenType.PropertyName)
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidJson,
+                        Code = ErrorCodes.InvalidJson,
                         Message = "Expected JSON property name.",
                         SourceName = sourceName,
                         Locale = locale
@@ -201,9 +203,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (key.Length == 0)
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.EmptyKey,
+                        Code = ErrorCodes.EmptyKey,
                         Message = "Localization key must not be empty.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -213,11 +215,11 @@ internal static class GlyphJsonResourceLoader
                     return null;
                 }
 
-                if (!GlyphKeyValidator.IsValid(key))
+                if (!KeyValidator.IsValid(key))
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidKey,
+                        Code = ErrorCodes.InvalidKey,
                         Message = "Localization key contains invalid characters.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -229,9 +231,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (!keys.Add(key))
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.DuplicateKey,
+                        Code = ErrorCodes.DuplicateKey,
                         Message = "Duplicate localization key.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -243,9 +245,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (!reader.Read())
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidJson,
+                        Code = ErrorCodes.InvalidJson,
                         Message = "Expected JSON property value.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -257,9 +259,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (reader.TokenType == JsonTokenType.Null)
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.NullValue,
+                        Code = ErrorCodes.NullValue,
                         Message = "Localization value must not be null.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -271,9 +273,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.NestedObjectNotSupported,
+                        Code = ErrorCodes.NestedObjectNotSupported,
                         Message = "Nested JSON values are not supported.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -285,9 +287,9 @@ internal static class GlyphJsonResourceLoader
 
                 if (reader.TokenType != JsonTokenType.String)
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidJson,
+                        Code = ErrorCodes.InvalidJson,
                         Message = "Localization value must be a string.",
                         SourceName = sourceName,
                         Locale = locale,
@@ -300,9 +302,9 @@ internal static class GlyphJsonResourceLoader
                 values.Add(key, reader.GetString() ?? string.Empty);
             }
 
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidJson,
+                Code = ErrorCodes.InvalidJson,
                 Message = "Unexpected end of JSON.",
                 SourceName = sourceName,
                 Locale = locale
@@ -312,9 +314,9 @@ internal static class GlyphJsonResourceLoader
         }
         catch (JsonException exception)
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidJson,
+                Code = ErrorCodes.InvalidJson,
                 Message = exception.Message,
                 SourceName = sourceName,
                 Locale = locale
@@ -347,9 +349,9 @@ internal static class GlyphJsonResourceLoader
                 : bytes;
     }
 
-    private static GlyphLoadResult Failure(GlyphReloadError error)
+    private static LoadResult Failure(ReloadError error)
     {
-        return new GlyphLoadResult
+        return new LoadResult
         {
             Success = false,
             Errors = [error]

@@ -1,4 +1,8 @@
-﻿namespace Glyph.Tests;
+﻿using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+
+namespace Glyph.Tests;
 
 public sealed class GlyphSnapshotBuilderTests
 {
@@ -15,7 +19,7 @@ public sealed class GlyphSnapshotBuilderTests
             }
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [
                 CreateResource("en", ("menu.play", "Play")),
@@ -42,7 +46,7 @@ public sealed class GlyphSnapshotBuilderTests
             DefaultLocale = "en"
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [CreateResource("ru", ("menu.play", "Играть"))],
             oldSnapshotVersion: 5);
@@ -51,7 +55,7 @@ public sealed class GlyphSnapshotBuilderTests
         Assert.Null(result.Snapshot);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.MissingDefaultLocale);
+            error => error.Code == ErrorCodes.MissingDefaultLocale);
     }
 
     [Fact]
@@ -67,7 +71,7 @@ public sealed class GlyphSnapshotBuilderTests
             }
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [
                 CreateResource("en", ("menu.play", "Play")),
@@ -79,7 +83,7 @@ public sealed class GlyphSnapshotBuilderTests
         Assert.Null(result.Snapshot);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.InvalidLocale);
+            error => error.Code == ErrorCodes.InvalidLocale);
     }
 
     [Fact]
@@ -96,7 +100,7 @@ public sealed class GlyphSnapshotBuilderTests
             }
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [
                 CreateResource("en", ("menu.play", "Play")),
@@ -109,7 +113,7 @@ public sealed class GlyphSnapshotBuilderTests
         Assert.Null(result.Snapshot);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.FallbackCycle);
+            error => error.Code == ErrorCodes.FallbackCycle);
     }
 
     [Fact]
@@ -125,7 +129,7 @@ public sealed class GlyphSnapshotBuilderTests
             }
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             [
                 CreateResource("en", ("menu.play", "Play")),
@@ -145,11 +149,11 @@ public sealed class GlyphSnapshotBuilderTests
         Assert.Equal(["ru-RU", "ru", "en"], chain);
     }
 
-    private static GlyphLocaleResource CreateResource(
+    private static LocaleResource CreateResource(
         string locale,
         params (string Key, string Value)[] values)
     {
-        return new GlyphLocaleResource
+        return new LocaleResource
         {
             Locale = locale,
             SourceName = $"{locale}.json",

@@ -1,8 +1,9 @@
-﻿using System.Collections.Frozen;
+﻿using Glyph.Contracts;
+using System.Collections.Frozen;
 
-namespace Glyph;
+namespace Glyph.Runtime;
 
-internal sealed class GlyphSnapshot
+internal sealed class Snapshot
 {
     public required ulong Version { get; init; }
 
@@ -36,7 +37,7 @@ internal sealed class GlyphSnapshot
         return false;
     }
 
-    public GlyphLookupResult Get(
+    public LookupResult Get(
         string? originalLocale,
         string? key)
     {
@@ -53,7 +54,7 @@ internal sealed class GlyphSnapshot
             key);
     }
 
-    public GlyphLookupResult GetUsingPrecomputedFallbackChain(
+    public LookupResult GetUsingPrecomputedFallbackChain(
         string? originalLocale,
         string? key,
         string[] fallbackChain)
@@ -68,11 +69,11 @@ internal sealed class GlyphSnapshot
                 continue;
             }
 
-            GlyphLookupStatus status = currentLocale == originalLocale
-                ? GlyphLookupStatus.Found
-                : GlyphLookupStatus.FoundViaFallback;
+            LookupStatus status = currentLocale == originalLocale
+                ? LookupStatus.Found
+                : LookupStatus.FoundViaFallback;
 
-            return new GlyphLookupResult(
+            return new LookupResult(
                 status,
                 resultLocale,
                 resultKey,
@@ -81,8 +82,8 @@ internal sealed class GlyphSnapshot
                 Version);
         }
 
-        return new GlyphLookupResult(
-            GlyphLookupStatus.MissingKey,
+        return new LookupResult(
+            LookupStatus.MissingKey,
             resultLocale,
             resultKey,
             null,
@@ -90,7 +91,7 @@ internal sealed class GlyphSnapshot
             Version);
     }
 
-    public GlyphLookupResult GetUsingMissingLocaleFallbackToDefault(
+    public LookupResult GetUsingMissingLocaleFallbackToDefault(
         string? originalLocale,
         string? key)
     {
@@ -99,8 +100,8 @@ internal sealed class GlyphSnapshot
 
         if (TryResolve(DefaultLocale, key, out string? defaultValue))
         {
-            return new GlyphLookupResult(
-                GlyphLookupStatus.FoundViaFallback,
+            return new LookupResult(
+                LookupStatus.FoundViaFallback,
                 resultLocale,
                 resultKey,
                 defaultValue,
@@ -108,8 +109,8 @@ internal sealed class GlyphSnapshot
                 Version);
         }
 
-        return new GlyphLookupResult(
-            GlyphLookupStatus.MissingLocale,
+        return new LookupResult(
+            LookupStatus.MissingLocale,
             resultLocale,
             resultKey,
             null,

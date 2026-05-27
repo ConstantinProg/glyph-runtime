@@ -1,6 +1,6 @@
 namespace Glyph;
 
-internal static class GlyphLocaleNormalizer
+internal static class LocaleNormalizer
 {
     public static string Normalize(string locale)
     {

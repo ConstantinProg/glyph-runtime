@@ -1,4 +1,7 @@
-﻿using Glyph;
+﻿using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+using Glyph.Validation;
 using Xunit;
 
 namespace Glyph.Tests;
@@ -28,9 +31,9 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
 
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult before = runtime.Get("en", "menu.play");
+        LookupResult before = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, before.Status);
+        Assert.Equal(LookupStatus.Found, before.Status);
         Assert.Equal("Play", before.Value);
         Assert.Equal(1UL, before.SnapshotVersion);
 
@@ -40,15 +43,15 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         }
         """);
 
-        GlyphReloadResult reloadResult = await runtime.ReloadAsync();
+        ReloadResult reloadResult = await runtime.ReloadAsync();
 
         Assert.True(reloadResult.Success);
         Assert.Equal(1UL, reloadResult.OldVersion);
         Assert.Equal(2UL, reloadResult.NewVersion);
 
-        GlyphLookupResult after = runtime.Get("en", "menu.play");
+        LookupResult after = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal(LookupStatus.Found, after.Status);
         Assert.Equal("Start", after.Value);
         Assert.Equal(2UL, after.SnapshotVersion);
     }
@@ -72,18 +75,18 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         }
         """);
 
-        GlyphReloadResult reloadResult = await runtime.ReloadAsync();
+        ReloadResult reloadResult = await runtime.ReloadAsync();
 
         Assert.False(reloadResult.Success);
         Assert.Equal(1UL, reloadResult.OldVersion);
         Assert.Equal(1UL, reloadResult.NewVersion);
         Assert.Contains(
             reloadResult.Errors,
-            error => error.Code == GlyphErrorCodes.NestedObjectNotSupported);
+            error => error.Code == ErrorCodes.NestedObjectNotSupported);
 
-        GlyphLookupResult after = runtime.Get("en", "menu.play");
+        LookupResult after = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal(LookupStatus.Found, after.Status);
         Assert.Equal("Play", after.Value);
         Assert.Equal(1UL, after.SnapshotVersion);
     }
@@ -110,9 +113,9 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
 
         Assert.Null(exception);
 
-        GlyphLookupResult after = runtime.Get("en", "menu.play");
+        LookupResult after = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal(LookupStatus.Found, after.Status);
         Assert.Equal("Play", after.Value);
         Assert.Equal(1UL, after.SnapshotVersion);
     }
@@ -134,9 +137,9 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             async () => await runtime.ReloadAsync(cancellationTokenSource.Token));
 
-        GlyphLookupResult after = runtime.Get("en", "menu.play");
+        LookupResult after = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal(LookupStatus.Found, after.Status);
         Assert.Equal("Play", after.Value);
         Assert.Equal(1UL, after.SnapshotVersion);
     }
@@ -165,15 +168,15 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         {
             while (!cancellationTokenSource.IsCancellationRequested)
             {
-                GlyphLookupResult result = runtime.Get("en", "menu.play");
+                LookupResult result = runtime.Get("en", "menu.play");
 
-                Assert.Equal(GlyphLookupStatus.Found, result.Status);
+                Assert.Equal(LookupStatus.Found, result.Status);
                 Assert.NotNull(result.Value);
                 Assert.True(result.SnapshotVersion is 1UL or 2UL);
             }
         }, cancellationTokenSource.Token);
 
-        GlyphReloadResult reloadResult = await runtime.ReloadAsync();
+        ReloadResult reloadResult = await runtime.ReloadAsync();
 
         cancellationTokenSource.Cancel();
 
@@ -217,15 +220,15 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         }
         """);
 
-        GlyphReloadResult reloadResult = await runtime.ReloadAsync();
+        ReloadResult reloadResult = await runtime.ReloadAsync();
 
         Assert.True(reloadResult.Success);
         Assert.Equal(1UL, reloadResult.OldVersion);
         Assert.Equal(2UL, reloadResult.NewVersion);
 
-        GlyphLookupResult after = runtime.Get("en", "menu.play");
+        LookupResult after = runtime.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal(LookupStatus.Found, after.Status);
         Assert.Equal("Start", after.Value);
         Assert.Equal(2UL, after.SnapshotVersion);
     }
@@ -249,20 +252,20 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
 
     private GlyphRuntime CreateRuntime(GlyphOptions options)
     {
-        GlyphOptionsValidationResult validationResult =
-            GlyphOptionsValidator.Validate(options);
+        OptionsValidationResult validationResult =
+            OptionsValidator.Validate(options);
 
         Assert.True(validationResult.Success);
 
-        GlyphRuntimeConfiguration configuration =
-            GlyphRuntimeConfiguration.From(validationResult);
+        RuntimeConfiguration configuration =
+            RuntimeConfiguration.From(validationResult);
 
-        GlyphLoadResult loadResult =
-            GlyphJsonResourceLoader.Load(configuration.ResourcesPath);
+        LoadResult loadResult =
+            JsonResourceLoader.Load(configuration.ResourcesPath);
 
         Assert.True(loadResult.Success);
 
-        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
             configuration.ToGlyphOptions(),
             loadResult.Resources,
             oldSnapshotVersion: 0);
@@ -271,7 +274,7 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         Assert.NotNull(buildResult.Snapshot);
 
         return new GlyphRuntime(
-            new GlyphSnapshotStore(buildResult.Snapshot),
+            new SnapshotStore(buildResult.Snapshot),
             configuration);
     }
 

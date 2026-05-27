@@ -1,32 +1,36 @@
-﻿using System.Collections.Frozen;
+﻿using Glyph.Contracts;
+using Glyph.Fallbacks;
+using Glyph.Loading;
+using Glyph.Validation;
+using System.Collections.Frozen;
 
-namespace Glyph;
+namespace Glyph.Runtime;
 
-internal static class GlyphSnapshotBuilder
+internal static class SnapshotBuilder
 {
-    public static GlyphSnapshotBuildResult Build(
+    public static SnapshotBuildResult Build(
         GlyphOptions options,
-        IReadOnlyList<GlyphLocaleResource> resources,
+        IReadOnlyList<LocaleResource> resources,
         ulong oldSnapshotVersion)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(resources);
 
-        GlyphOptionsValidationResult optionsValidation = GlyphOptionsValidator.Validate(options);
+        OptionsValidationResult optionsValidation = OptionsValidator.Validate(options);
 
         if (!optionsValidation.Success)
         {
             return Failure(optionsValidation.Errors);
         }
 
-        List<GlyphReloadError> errors = [];
+        List<ReloadError> errors = [];
         Dictionary<string, FrozenDictionary<string, string>> tables = BuildTables(resources, errors);
 
         if (!tables.ContainsKey(optionsValidation.DefaultLocale))
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.MissingDefaultLocale,
+                Code = ErrorCodes.MissingDefaultLocale,
                 Message = "Default locale table was not found.",
                 Locale = optionsValidation.DefaultLocale
             });
@@ -40,8 +44,8 @@ internal static class GlyphSnapshotBuilder
         FrozenDictionary<string, FrozenDictionary<string, string>> frozenTables =
             tables.ToFrozenDictionary(StringComparer.Ordinal);
 
-        GlyphFallbackChainBuildResult fallbackChainBuildResult =
-            GlyphFallbackChainBuilder.Build(
+        FallbackChainBuildResult fallbackChainBuildResult =
+            FallbackChainBuilder.Build(
                 optionsValidation.DefaultLocale,
                 frozenTables.Keys,
                 optionsValidation.Fallbacks);
@@ -62,10 +66,10 @@ internal static class GlyphSnapshotBuilder
 
         int totalEntryCount = frozenTables.Values.Sum(table => table.Count);
 
-        return new GlyphSnapshotBuildResult
+        return new SnapshotBuildResult
         {
             Success = true,
-            Snapshot = new GlyphSnapshot
+            Snapshot = new Snapshot
             {
                 Version = oldSnapshotVersion + 1,
                 DefaultLocale = optionsValidation.DefaultLocale,
@@ -80,18 +84,18 @@ internal static class GlyphSnapshotBuilder
     }
 
     private static Dictionary<string, FrozenDictionary<string, string>> BuildTables(
-        IReadOnlyList<GlyphLocaleResource> resources,
-        List<GlyphReloadError> errors)
+        IReadOnlyList<LocaleResource> resources,
+        List<ReloadError> errors)
     {
         Dictionary<string, FrozenDictionary<string, string>> tables = new(StringComparer.Ordinal);
 
-        foreach (GlyphLocaleResource resource in resources)
+        foreach (LocaleResource resource in resources)
         {
-            if (!GlyphLocaleNormalizer.TryNormalize(resource.Locale, out string locale))
+            if (!LocaleNormalizer.TryNormalize(resource.Locale, out string locale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidLocale,
+                    Code = ErrorCodes.InvalidLocale,
                     Message = "Resource locale is invalid.",
                     SourceName = resource.SourceName,
                     Locale = resource.Locale
@@ -102,9 +106,9 @@ internal static class GlyphSnapshotBuilder
 
             if (tables.ContainsKey(locale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.DuplicateLocale,
+                    Code = ErrorCodes.DuplicateLocale,
                     Message = "Duplicate locale table.",
                     SourceName = resource.SourceName,
                     Locale = locale
@@ -119,9 +123,9 @@ internal static class GlyphSnapshotBuilder
         return tables;
     }
 
-    private static GlyphSnapshotBuildResult Failure(IReadOnlyList<GlyphReloadError> errors)
+    private static SnapshotBuildResult Failure(IReadOnlyList<ReloadError> errors)
     {
-        return new GlyphSnapshotBuildResult
+        return new SnapshotBuildResult
         {
             Success = false,
             Snapshot = null,

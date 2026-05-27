@@ -1,4 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
+using Glyph.Contracts;
 
 namespace Glyph.Benchmarks;
 
@@ -11,7 +12,7 @@ public class GlyphLookupBenchmarks
 
     private string _resourcesPath = string.Empty;
 
-    private IGlyph _glyph = null!;
+    private IGlyphRuntime _glyph = null!;
     private Dictionary<string, string> _dictionaryBaseline = null!;
 
     private string _exactKey = string.Empty;
@@ -83,37 +84,37 @@ public class GlyphLookupBenchmarks
     }
 
     [Benchmark]
-    public GlyphLookupResult Glyph_ExactLocaleLookup()
+    public LookupResult Glyph_ExactLocaleLookup()
     {
         return _glyph.Get("en", _exactKey);
     }
 
     [Benchmark]
-    public GlyphLookupResult Glyph_FallbackLookup()
+    public LookupResult Glyph_FallbackLookup()
     {
         return _glyph.Get("ru-RU", _fallbackKey);
     }
 
     [Benchmark]
-    public GlyphLookupResult Glyph_MissingKeyLookup()
+    public LookupResult Glyph_MissingKeyLookup()
     {
         return _glyph.Get("en", _missingKey);
     }
 
     [Benchmark]
-    public GlyphBatchLookupResult Glyph_BatchLookup_10Keys()
+    public BatchLookupResult Glyph_BatchLookup_10Keys()
     {
         return _glyph.GetBatch("en", _batch10Keys);
     }
 
     [Benchmark]
-    public GlyphBatchLookupResult Glyph_BatchLookup_100Keys()
+    public BatchLookupResult Glyph_BatchLookup_100Keys()
     {
         return _glyph.GetBatch("en", _batch100Keys);
     }
 
     [Benchmark]
-    public async ValueTask<GlyphReloadResult> Glyph_SnapshotReload()
+    public async ValueTask<ReloadResult> Glyph_SnapshotReload()
     {
         _reloadGeneration++;
         WriteLocalizationFiles(_reloadGeneration);

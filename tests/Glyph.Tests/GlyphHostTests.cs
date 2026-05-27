@@ -1,4 +1,4 @@
-﻿using Glyph;
+﻿using Glyph.Contracts;
 using Xunit;
 
 namespace Glyph.Tests;
@@ -26,15 +26,15 @@ public sealed class GlyphHostTests : IDisposable
         }
         """);
 
-        IGlyph glyph = await GlyphHost.CreateAsync(new GlyphOptions
+        IGlyphRuntime glyph = await GlyphHost.CreateAsync(new GlyphOptions
         {
             ResourcesPath = _resourcesPath,
             DefaultLocale = "en"
         });
 
-        GlyphLookupResult result = glyph.Get("en", "menu.play");
+        LookupResult result = glyph.Get("en", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(LookupStatus.Found, result.Status);
         Assert.Equal("Play", result.Value);
         Assert.Equal("en", result.ResolvedLocale);
         Assert.Equal(1UL, result.SnapshotVersion);
@@ -60,7 +60,7 @@ public sealed class GlyphHostTests : IDisposable
         }
         """);
 
-        IGlyph glyph = await GlyphHost.CreateAsync(new GlyphOptions
+        IGlyphRuntime glyph = await GlyphHost.CreateAsync(new GlyphOptions
         {
             ResourcesPath = _resourcesPath,
             DefaultLocale = "en",
@@ -70,9 +70,9 @@ public sealed class GlyphHostTests : IDisposable
             }
         });
 
-        GlyphLookupResult result = glyph.Get("ru-RU", "menu.play");
+        LookupResult result = glyph.Get("ru-RU", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("Играть", result.Value);
         Assert.Equal("ru", result.ResolvedLocale);
     }
@@ -89,7 +89,7 @@ public sealed class GlyphHostTests : IDisposable
                 }));
 
         Assert.Contains("Glyph initialization failed.", exception.Message);
-        Assert.Contains(GlyphErrorCodes.InvalidLocale, exception.Message);
+        Assert.Contains(ErrorCodes.InvalidLocale, exception.Message);
         Assert.Contains("DefaultLocale is invalid.", exception.Message);
     }
 
@@ -107,7 +107,7 @@ public sealed class GlyphHostTests : IDisposable
                 }));
 
         Assert.Contains("Glyph initialization failed.", exception.Message);
-        Assert.Contains(GlyphErrorCodes.ResourcesPathNotFound, exception.Message);
+        Assert.Contains(ErrorCodes.ResourcesPathNotFound, exception.Message);
         Assert.Contains(missingPath, exception.Message);
     }
 
@@ -129,7 +129,7 @@ public sealed class GlyphHostTests : IDisposable
                 }));
 
         Assert.Contains("Glyph initialization failed.", exception.Message);
-        Assert.Contains(GlyphErrorCodes.MissingDefaultLocale, exception.Message);
+        Assert.Contains(ErrorCodes.MissingDefaultLocale, exception.Message);
         Assert.Contains("en", exception.Message);
     }
 
@@ -153,7 +153,7 @@ public sealed class GlyphHostTests : IDisposable
                 }));
 
         Assert.Contains("Glyph initialization failed.", exception.Message);
-        Assert.Contains(GlyphErrorCodes.NestedObjectNotSupported, exception.Message);
+        Assert.Contains(ErrorCodes.NestedObjectNotSupported, exception.Message);
         Assert.Contains("en.json", exception.Message);
         Assert.Contains("menu.play", exception.Message);
     }
@@ -187,7 +187,7 @@ public sealed class GlyphHostTests : IDisposable
                 }));
 
         Assert.Contains("Glyph initialization failed.", exception.Message);
-        Assert.Contains(GlyphErrorCodes.FallbackCycle, exception.Message);
+        Assert.Contains(ErrorCodes.FallbackCycle, exception.Message);
     }
 
     [Fact]

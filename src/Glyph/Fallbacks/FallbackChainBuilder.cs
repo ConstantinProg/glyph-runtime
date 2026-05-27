@@ -1,10 +1,11 @@
-﻿using System.Collections.Frozen;
+﻿using Glyph.Contracts;
+using System.Collections.Frozen;
 
-namespace Glyph;
+namespace Glyph.Fallbacks;
 
-internal static class GlyphFallbackChainBuilder
+internal static class FallbackChainBuilder
 {
-    public static GlyphFallbackChainBuildResult Build(
+    public static FallbackChainBuildResult Build(
         string defaultLocale,
         IEnumerable<string> locales,
         IReadOnlyDictionary<string, string[]> fallbacks)
@@ -13,13 +14,13 @@ internal static class GlyphFallbackChainBuilder
         ArgumentNullException.ThrowIfNull(locales);
         ArgumentNullException.ThrowIfNull(fallbacks);
 
-        List<GlyphReloadError> errors = [];
+        List<ReloadError> errors = [];
 
-        if (!GlyphLocaleNormalizer.TryNormalize(defaultLocale, out string normalizedDefaultLocale))
+        if (!LocaleNormalizer.TryNormalize(defaultLocale, out string normalizedDefaultLocale))
         {
-            errors.Add(new GlyphReloadError
+            errors.Add(new ReloadError
             {
-                Code = GlyphErrorCodes.InvalidLocale,
+                Code = ErrorCodes.InvalidLocale,
                 Message = "Default locale is invalid.",
                 Locale = defaultLocale
             });
@@ -45,11 +46,11 @@ internal static class GlyphFallbackChainBuilder
 
         foreach (string locale in locales)
         {
-            if (!GlyphLocaleNormalizer.TryNormalize(locale, out string normalizedLocale))
+            if (!LocaleNormalizer.TryNormalize(locale, out string normalizedLocale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidLocale,
+                    Code = ErrorCodes.InvalidLocale,
                     Message = "Locale is invalid.",
                     Locale = locale
                 });
@@ -74,7 +75,7 @@ internal static class GlyphFallbackChainBuilder
                 BuildChainForLocale(locale, normalizedDefaultLocale, normalizedFallbacks));
         }
 
-        return new GlyphFallbackChainBuildResult
+        return new FallbackChainBuildResult
         {
             Success = true,
             Chains = chains.ToFrozenDictionary(StringComparer.Ordinal)
@@ -83,17 +84,17 @@ internal static class GlyphFallbackChainBuilder
 
     private static Dictionary<string, string[]> NormalizeFallbacks(
         IReadOnlyDictionary<string, string[]> fallbacks,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         Dictionary<string, string[]> normalizedFallbacks = new(StringComparer.Ordinal);
 
         foreach (KeyValuePair<string, string[]> pair in fallbacks)
         {
-            if (!GlyphLocaleNormalizer.TryNormalize(pair.Key, out string normalizedLocale))
+            if (!LocaleNormalizer.TryNormalize(pair.Key, out string normalizedLocale))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidLocale,
+                    Code = ErrorCodes.InvalidLocale,
                     Message = "Fallback source locale is invalid.",
                     Locale = pair.Key
                 });
@@ -103,9 +104,9 @@ internal static class GlyphFallbackChainBuilder
 
             if (pair.Value is null)
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.InvalidOptions,
+                    Code = ErrorCodes.InvalidOptions,
                     Message = "Fallback locale array must not be null.",
                     Locale = normalizedLocale
                 });
@@ -119,13 +120,13 @@ internal static class GlyphFallbackChainBuilder
             {
                 string? fallbackLocale = pair.Value[i];
 
-                if (!GlyphLocaleNormalizer.TryNormalize(
+                if (!LocaleNormalizer.TryNormalize(
                         fallbackLocale,
                         out string normalizedFallbackLocale))
                 {
-                    errors.Add(new GlyphReloadError
+                    errors.Add(new ReloadError
                     {
-                        Code = GlyphErrorCodes.InvalidLocale,
+                        Code = ErrorCodes.InvalidLocale,
                         Message = $"Fallback locale item at index {i} is invalid.",
                         Locale = fallbackLocale
                     });
@@ -160,7 +161,7 @@ internal static class GlyphFallbackChainBuilder
             }
         }
 
-        string? neutralLocale = GlyphLocaleNormalizer.GetNeutralLocale(locale);
+        string? neutralLocale = LocaleNormalizer.GetNeutralLocale(locale);
 
         if (neutralLocale is not null)
         {
@@ -174,7 +175,7 @@ internal static class GlyphFallbackChainBuilder
 
     private static void ValidateFallbackCycles(
         IReadOnlyDictionary<string, string[]> fallbacks,
-        List<GlyphReloadError> errors)
+        List<ReloadError> errors)
     {
         Dictionary<string, VisitState> states = new(StringComparer.Ordinal);
 
@@ -182,9 +183,9 @@ internal static class GlyphFallbackChainBuilder
         {
             if (HasCycle(locale, fallbacks, states))
             {
-                errors.Add(new GlyphReloadError
+                errors.Add(new ReloadError
                 {
-                    Code = GlyphErrorCodes.FallbackCycle,
+                    Code = ErrorCodes.FallbackCycle,
                     Message = "Fallback configuration contains a cycle.",
                     Locale = locale
                 });
@@ -233,10 +234,10 @@ internal static class GlyphFallbackChainBuilder
         }
     }
 
-    private static GlyphFallbackChainBuildResult Failure(
-        IReadOnlyList<GlyphReloadError> errors)
+    private static FallbackChainBuildResult Failure(
+        IReadOnlyList<ReloadError> errors)
     {
-        return new GlyphFallbackChainBuildResult
+        return new FallbackChainBuildResult
         {
             Success = false,
             Errors = errors

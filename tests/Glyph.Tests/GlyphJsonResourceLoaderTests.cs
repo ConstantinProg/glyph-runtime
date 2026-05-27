@@ -1,3 +1,6 @@
+using Glyph.Contracts;
+using Glyph.Loading;
+
 namespace Glyph.Tests;
 
 public sealed class GlyphJsonResourceLoaderTests
@@ -13,10 +16,10 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.True(result.Success);
-        GlyphLocaleResource resource = Assert.Single(result.Resources);
+        LocaleResource resource = Assert.Single(result.Resources);
         Assert.Equal("en", resource.Locale);
         Assert.Equal("Play", resource.Values["menu.play"]);
         Assert.Equal("Exit", resource.Values["menu.exit"]);
@@ -34,12 +37,12 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.NestedObjectNotSupported);
+            error => error.Code == ErrorCodes.NestedObjectNotSupported);
     }
 
     [Fact]
@@ -53,12 +56,12 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.DuplicateKey);
+            error => error.Code == ErrorCodes.DuplicateKey);
     }
 
     [Fact]
@@ -71,12 +74,12 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.EmptyKey);
+            error => error.Code == ErrorCodes.EmptyKey);
     }
 
     [Fact]
@@ -89,12 +92,12 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.NullValue);
+            error => error.Code == ErrorCodes.NullValue);
     }
 
     [Fact]
@@ -108,10 +111,10 @@ public sealed class GlyphJsonResourceLoaderTests
         }
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.True(result.Success);
-        GlyphLocaleResource resource = Assert.Single(result.Resources);
+        LocaleResource resource = Assert.Single(result.Resources);
         Assert.Equal("", resource.Values["empty.allowed"]);
         Assert.Equal("   ", resource.Values["spaces.allowed"]);
     }
@@ -138,12 +141,12 @@ public sealed class GlyphJsonResourceLoaderTests
             return;
         }
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.DuplicateLocale);
+            error => error.Code == ErrorCodes.DuplicateLocale);
     }
 
     [Fact]
@@ -153,12 +156,12 @@ public sealed class GlyphJsonResourceLoaderTests
             System.IO.Path.GetTempPath(),
             Guid.NewGuid().ToString("N"));
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(missingPath);
+        LoadResult result = JsonResourceLoader.Load(missingPath);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.ResourcesPathNotFound);
+            error => error.Code == ErrorCodes.ResourcesPathNotFound);
     }
 
     [Fact]
@@ -166,12 +169,12 @@ public sealed class GlyphJsonResourceLoaderTests
     {
         using TempLocalizationDirectory directory = new();
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.NoJsonFiles);
+            error => error.Code == ErrorCodes.NoJsonFiles);
     }
 
     [Fact]
@@ -183,12 +186,12 @@ public sealed class GlyphJsonResourceLoaderTests
           "menu.play": "Play",
         """);
 
-        GlyphLoadResult result = GlyphJsonResourceLoader.Load(directory.Path);
+        LoadResult result = JsonResourceLoader.Load(directory.Path);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
-            error => error.Code == GlyphErrorCodes.InvalidJson);
+            error => error.Code == ErrorCodes.InvalidJson);
     }
 
     private sealed class TempLocalizationDirectory : IDisposable

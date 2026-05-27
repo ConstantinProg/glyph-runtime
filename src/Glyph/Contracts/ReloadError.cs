@@ -1,9 +1,9 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Describes a validation or loading error produced during reload.
 /// </summary>
-public sealed class GlyphReloadError
+public sealed class ReloadError
 {
     /// <summary>
     /// Gets the machine-readable error code.

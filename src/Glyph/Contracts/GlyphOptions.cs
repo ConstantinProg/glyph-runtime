@@ -1,4 +1,4 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Provides mutable configuration for creating a Glyph runtime instance.

@@ -1,4 +1,9 @@
-﻿namespace Glyph.Tests;
+﻿using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+using Glyph.Validation;
+
+namespace Glyph.Tests;
 
 public sealed class GlyphRuntimeTests
 {
@@ -7,9 +12,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("ru-RU", "menu.play");
+        LookupResult result = runtime.Get("ru-RU", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.Found, result.Status);
+        Assert.Equal(LookupStatus.Found, result.Status);
         Assert.Equal("ru-RU", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Играть", result.Value);
@@ -22,9 +27,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("ru-RU", "menu.exit");
+        LookupResult result = runtime.Get("ru-RU", "menu.exit");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("ru-RU", result.Locale);
         Assert.Equal("menu.exit", result.Key);
         Assert.Equal("Exit", result.Value);
@@ -37,9 +42,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("ru-RU", "missing.key");
+        LookupResult result = runtime.Get("ru-RU", "missing.key");
 
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Status);
         Assert.Equal("ru-RU", result.Locale);
         Assert.Equal("missing.key", result.Key);
         Assert.Null(result.Value);
@@ -52,9 +57,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("de-DE", "menu.play");
+        LookupResult result = runtime.Get("de-DE", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("de-DE", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -67,9 +72,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("de-DE", "missing.key");
+        LookupResult result = runtime.Get("de-DE", "missing.key");
 
-        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Status);
+        Assert.Equal(LookupStatus.MissingLocale, result.Status);
         Assert.Equal("de-DE", result.Locale);
         Assert.Equal("missing.key", result.Key);
         Assert.Null(result.Value);
@@ -82,9 +87,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntimeWithFallbackOnlyLocale();
 
-        GlyphLookupResult result = runtime.Get("fr-FR", "missing.key");
+        LookupResult result = runtime.Get("fr-FR", "missing.key");
 
-        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Status);
+        Assert.Equal(LookupStatus.MissingLocale, result.Status);
         Assert.Equal("fr-FR", result.Locale);
         Assert.Equal("missing.key", result.Key);
         Assert.Null(result.Value);
@@ -97,9 +102,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntimeWithFallbackOnlyLocale();
 
-        GlyphLookupResult result = runtime.Get("fr-FR", "menu.play");
+        LookupResult result = runtime.Get("fr-FR", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("fr-FR", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -112,9 +117,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("invalid-locale-value", "menu.play");
+        LookupResult result = runtime.Get("invalid-locale-value", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("invalid-locale-value", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -127,9 +132,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("en", "Menu.Play");
+        LookupResult result = runtime.Get("en", "Menu.Play");
 
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Status);
         Assert.Equal("en", result.Locale);
         Assert.Equal("Menu.Play", result.Key);
         Assert.Null(result.Value);
@@ -142,9 +147,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("en", "");
+        LookupResult result = runtime.Get("en", "");
 
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Status);
         Assert.Equal("en", result.Locale);
         Assert.Equal("", result.Key);
         Assert.Null(result.Value);
@@ -157,9 +162,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("en", null!);
+        LookupResult result = runtime.Get("en", null!);
 
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Status);
         Assert.Equal("en", result.Locale);
         Assert.Equal("", result.Key);
         Assert.Null(result.Value);
@@ -172,9 +177,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get(null!, "menu.play");
+        LookupResult result = runtime.Get(null!, "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -187,9 +192,9 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphLookupResult result = runtime.Get("ru-ru", "menu.play");
+        LookupResult result = runtime.Get("ru-ru", "menu.play");
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Status);
         Assert.Equal("ru-ru", result.Locale);
         Assert.Equal("menu.play", result.Key);
         Assert.Equal("Play", result.Value);
@@ -202,7 +207,7 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphBatchLookupResult result = runtime.GetBatch(
+        BatchLookupResult result = runtime.GetBatch(
             "ru-RU",
             ["menu.exit", "menu.play", "missing.key"]);
 
@@ -212,15 +217,15 @@ public sealed class GlyphRuntimeTests
 
         Assert.Equal("menu.exit", result.Items[0].Key);
         Assert.Equal("Exit", result.Items[0].Value);
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Items[0].Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Items[0].Status);
 
         Assert.Equal("menu.play", result.Items[1].Key);
         Assert.Equal("Играть", result.Items[1].Value);
-        Assert.Equal(GlyphLookupStatus.Found, result.Items[1].Status);
+        Assert.Equal(LookupStatus.Found, result.Items[1].Status);
 
         Assert.Equal("missing.key", result.Items[2].Key);
         Assert.Null(result.Items[2].Value);
-        Assert.Equal(GlyphLookupStatus.MissingKey, result.Items[2].Status);
+        Assert.Equal(LookupStatus.MissingKey, result.Items[2].Status);
     }
 
     [Fact]
@@ -228,7 +233,7 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphBatchLookupResult result = runtime.GetBatch(
+        BatchLookupResult result = runtime.GetBatch(
             "ru-RU",
             ["menu.play", "menu.exit", "missing.key"]);
 
@@ -242,18 +247,18 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphBatchLookupResult result = runtime.GetBatch(
+        BatchLookupResult result = runtime.GetBatch(
             "de-DE",
             ["menu.play", "missing.key"]);
 
         Assert.Equal("de-DE", result.Locale);
         Assert.Equal(2, result.Items.Length);
 
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Items[0].Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, result.Items[0].Status);
         Assert.Equal("Play", result.Items[0].Value);
         Assert.Equal("en", result.Items[0].ResolvedLocale);
 
-        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Items[1].Status);
+        Assert.Equal(LookupStatus.MissingLocale, result.Items[1].Status);
         Assert.Null(result.Items[1].Value);
         Assert.Null(result.Items[1].ResolvedLocale);
     }
@@ -263,7 +268,7 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphBatchLookupResult result = runtime.GetBatch(
+        BatchLookupResult result = runtime.GetBatch(
             "en",
             ["Menu.Play", "", null!]);
 
@@ -271,7 +276,7 @@ public sealed class GlyphRuntimeTests
 
         Assert.All(
             result.Items,
-            item => Assert.Equal(GlyphLookupStatus.MissingKey, item.Status));
+            item => Assert.Equal(LookupStatus.MissingKey, item.Status));
 
         Assert.Equal("Menu.Play", result.Items[0].Key);
         Assert.Equal("", result.Items[1].Key);
@@ -283,14 +288,14 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphBatchLookupResult result = runtime.GetBatch(
+        BatchLookupResult result = runtime.GetBatch(
             "invalid-locale-value",
             ["menu.play"]);
 
-        GlyphLookupResult item = Assert.Single(result.Items);
+        LookupResult item = Assert.Single(result.Items);
 
         Assert.Equal("invalid-locale-value", result.Locale);
-        Assert.Equal(GlyphLookupStatus.FoundViaFallback, item.Status);
+        Assert.Equal(LookupStatus.FoundViaFallback, item.Status);
         Assert.Equal("Play", item.Value);
         Assert.Equal("en", item.ResolvedLocale);
     }
@@ -309,7 +314,7 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphSnapshotInfo info = runtime.GetSnapshotInfo();
+        SnapshotInfo info = runtime.GetSnapshotInfo();
 
         Assert.Equal(1UL, info.Version);
         Assert.Equal("en", info.DefaultLocale);
@@ -324,12 +329,12 @@ public sealed class GlyphRuntimeTests
     {
         GlyphRuntime runtime = CreateRuntime();
 
-        GlyphSnapshotInfo firstInfo = runtime.GetSnapshotInfo();
+        SnapshotInfo firstInfo = runtime.GetSnapshotInfo();
 
         string[] exposedLocales = Assert.IsType<string[]>(firstInfo.Locales);
         exposedLocales[0] = "mutated";
 
-        GlyphSnapshotInfo secondInfo = runtime.GetSnapshotInfo();
+        SnapshotInfo secondInfo = runtime.GetSnapshotInfo();
 
         Assert.Equal(["en", "ru", "ru-RU"], secondInfo.Locales);
     }
@@ -345,12 +350,12 @@ public sealed class GlyphRuntimeTests
             }
         };
 
-        GlyphOptionsValidationResult validationResult =
-            GlyphOptionsValidator.Validate(options);
+        OptionsValidationResult validationResult =
+            OptionsValidator.Validate(options);
 
         Assert.True(validationResult.Success);
 
-        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
             options,
             CreateResources(),
             oldSnapshotVersion: 0);
@@ -359,8 +364,8 @@ public sealed class GlyphRuntimeTests
         Assert.NotNull(buildResult.Snapshot);
 
         return new GlyphRuntime(
-            new GlyphSnapshotStore(buildResult.Snapshot),
-            GlyphRuntimeConfiguration.From(validationResult));
+            new SnapshotStore(buildResult.Snapshot),
+            RuntimeConfiguration.From(validationResult));
     }
 
     private static GlyphRuntime CreateRuntimeWithFallbackOnlyLocale()
@@ -374,12 +379,12 @@ public sealed class GlyphRuntimeTests
             }
         };
 
-        GlyphOptionsValidationResult validationResult =
-            GlyphOptionsValidator.Validate(options);
+        OptionsValidationResult validationResult =
+            OptionsValidator.Validate(options);
 
         Assert.True(validationResult.Success);
 
-        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
             options,
             CreateResources(),
             oldSnapshotVersion: 0);
@@ -388,15 +393,15 @@ public sealed class GlyphRuntimeTests
         Assert.NotNull(buildResult.Snapshot);
 
         return new GlyphRuntime(
-            new GlyphSnapshotStore(buildResult.Snapshot),
-            GlyphRuntimeConfiguration.From(validationResult));
+            new SnapshotStore(buildResult.Snapshot),
+            RuntimeConfiguration.From(validationResult));
     }
 
-    private static GlyphLocaleResource[] CreateResources()
+    private static LocaleResource[] CreateResources()
     {
         return
         [
-            new GlyphLocaleResource
+            new LocaleResource
             {
                 Locale = "en",
                 SourceName = "en.json",
@@ -406,7 +411,7 @@ public sealed class GlyphRuntimeTests
                     ["menu.exit"] = "Exit"
                 }
             },
-            new GlyphLocaleResource
+            new LocaleResource
             {
                 Locale = "ru",
                 SourceName = "ru.json",
@@ -415,7 +420,7 @@ public sealed class GlyphRuntimeTests
                     ["menu.play"] = "Играть"
                 }
             },
-            new GlyphLocaleResource
+            new LocaleResource
             {
                 Locale = "ru-RU",
                 SourceName = "ru-RU.json",

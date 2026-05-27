@@ -1,9 +1,9 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Represents the result of a localization snapshot reload operation.
 /// </summary>
-public sealed class GlyphReloadResult
+public sealed class ReloadResult
 {
     /// <summary>
     /// Gets a value indicating whether reload completed successfully.
@@ -38,5 +38,5 @@ public sealed class GlyphReloadResult
     /// <summary>
     /// Gets reload errors.
     /// </summary>
-    public IReadOnlyList<GlyphReloadError> Errors { get; init; } = [];
+    public IReadOnlyList<ReloadError> Errors { get; init; } = [];
 }

@@ -1,10 +1,14 @@
+using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+using Glyph.Validation;
 using System.Text;
 
 namespace Glyph;
 
 public static class GlyphHost
 {
-    public static ValueTask<IGlyph> CreateAsync(
+    public static ValueTask<IGlyphRuntime> CreateAsync(
         GlyphOptions options,
         CancellationToken cancellationToken = default)
     {
@@ -12,21 +16,21 @@ public static class GlyphHost
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphOptionsValidationResult optionsValidation =
-            GlyphOptionsValidator.Validate(options);
+        OptionsValidationResult optionsValidation =
+            OptionsValidator.Validate(options);
 
         if (!optionsValidation.Success)
         {
             throw CreateInitializationException(optionsValidation.Errors);
         }
 
-        GlyphRuntimeConfiguration configuration =
-            GlyphRuntimeConfiguration.From(optionsValidation);
+        RuntimeConfiguration configuration =
+            RuntimeConfiguration.From(optionsValidation);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphLoadResult loadResult =
-            GlyphJsonResourceLoader.Load(configuration.ResourcesPath);
+        LoadResult loadResult =
+            JsonResourceLoader.Load(configuration.ResourcesPath);
 
         if (!loadResult.Success)
         {
@@ -35,7 +39,7 @@ public static class GlyphHost
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
             configuration.ToGlyphOptions(),
             loadResult.Resources,
             oldSnapshotVersion: 0);
@@ -45,15 +49,15 @@ public static class GlyphHost
             throw CreateInitializationException(buildResult.Errors);
         }
 
-        IGlyph runtime = new GlyphRuntime(
-            new GlyphSnapshotStore(buildResult.Snapshot),
+        IGlyphRuntime runtime = new GlyphRuntime(
+            new SnapshotStore(buildResult.Snapshot),
             configuration);
 
         return ValueTask.FromResult(runtime);
     }
 
     private static InvalidOperationException CreateInitializationException(
-        IReadOnlyList<GlyphReloadError> errors)
+        IReadOnlyList<ReloadError> errors)
     {
         if (errors.Count == 0)
         {
@@ -66,7 +70,7 @@ public static class GlyphHost
         message.AppendLine("Glyph initialization failed.");
         message.AppendLine("Errors:");
 
-        foreach (GlyphReloadError error in errors)
+        foreach (ReloadError error in errors)
         {
             message.Append("- ");
             message.Append(error.Code);

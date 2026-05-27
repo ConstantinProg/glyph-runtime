@@ -1,6 +1,6 @@
-namespace Glyph;
+namespace Glyph.Validation;
 
-internal static class GlyphKeyValidator
+internal static class KeyValidator
 {
     public static void ValidateArgument(string? key)
     {

@@ -1,10 +1,11 @@
 ﻿using Glyph;
+using Glyph.Contracts;
 
 string resourcesPath = Path.Combine(
     AppContext.BaseDirectory,
     "Localization");
 
-IGlyph glyph = await GlyphHost.CreateAsync(new GlyphOptions
+IGlyphRuntime glyph = await GlyphHost.CreateAsync(new GlyphOptions
 {
     ResourcesPath = resourcesPath,
     DefaultLocale = "en",
@@ -37,7 +38,7 @@ PrintSection("Missing locale fallback to default locale");
 PrintLookup(glyph.Get("de-DE", "menu.play"));
 
 PrintSection("Batch lookup");
-GlyphBatchLookupResult batch = glyph.GetBatch(
+BatchLookupResult batch = glyph.GetBatch(
     "ru-RU",
     [
         "app.title",
@@ -50,7 +51,7 @@ GlyphBatchLookupResult batch = glyph.GetBatch(
 Console.WriteLine($"Locale: {batch.Locale}");
 Console.WriteLine($"SnapshotVersion: {batch.SnapshotVersion}");
 
-foreach (GlyphLookupResult item in batch.Items)
+foreach (LookupResult item in batch.Items)
 {
     PrintLookup(item);
 }
@@ -75,7 +76,7 @@ await File.WriteAllTextAsync(
     }
     """);
 
-GlyphReloadResult reloadResult = await glyph.ReloadAsync();
+ReloadResult reloadResult = await glyph.ReloadAsync();
 
 Console.WriteLine($"Success: {reloadResult.Success}");
 Console.WriteLine($"OldVersion: {reloadResult.OldVersion}");
@@ -88,7 +89,7 @@ if (reloadResult.Errors.Count > 0)
 {
     Console.WriteLine("Errors:");
 
-    foreach (GlyphReloadError error in reloadResult.Errors)
+    foreach (ReloadError error in reloadResult.Errors)
     {
         Console.WriteLine($"- {error.Code}: {error.Message}");
     }
@@ -104,7 +105,7 @@ static void PrintSection(string title)
     Console.WriteLine("== " + title + " ==");
 }
 
-static void PrintLookup(GlyphLookupResult result)
+static void PrintLookup(LookupResult result)
 {
     Console.WriteLine(
         $"Key={result.Key}; " +
@@ -115,7 +116,7 @@ static void PrintLookup(GlyphLookupResult result)
         $"SnapshotVersion={result.SnapshotVersion}");
 }
 
-static void PrintSnapshotInfo(GlyphSnapshotInfo info)
+static void PrintSnapshotInfo(SnapshotInfo info)
 {
     Console.WriteLine($"Version: {info.Version}");
     Console.WriteLine($"DefaultLocale: {info.DefaultLocale}");

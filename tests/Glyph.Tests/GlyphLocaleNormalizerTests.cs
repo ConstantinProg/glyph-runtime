@@ -13,7 +13,7 @@ public sealed class GlyphLocaleNormalizerTests
         string input,
         string expected)
     {
-        string actual = GlyphLocaleNormalizer.Normalize(input);
+        string actual = LocaleNormalizer.Normalize(input);
 
         Assert.Equal(expected, actual);
     }
@@ -30,7 +30,7 @@ public sealed class GlyphLocaleNormalizerTests
     [InlineData("ru-RU-extra")]
     public void TryNormalize_ReturnsFalse_WhenLocaleIsInvalid(string input)
     {
-        bool result = GlyphLocaleNormalizer.TryNormalize(input, out string normalized);
+        bool result = LocaleNormalizer.TryNormalize(input, out string normalized);
 
         Assert.False(result);
         Assert.Equal(string.Empty, normalized);

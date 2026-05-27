@@ -1,3 +1,5 @@
+using Glyph.Contracts;
+
 namespace Glyph.Tests;
 
 public sealed class PublicApiSmokeTests
@@ -15,22 +17,22 @@ public sealed class PublicApiSmokeTests
             }
         };
 
-        GlyphLookupResult lookup = new(
-            GlyphLookupStatus.Found,
+        LookupResult lookup = new(
+            LookupStatus.Found,
             "en",
             "menu.play",
             "Play",
             "en",
             1);
 
-        GlyphBatchLookupResult batch = new()
+        BatchLookupResult batch = new()
         {
             Locale = "en",
             SnapshotVersion = 1,
             Items = [lookup]
         };
 
-        GlyphSnapshotInfo snapshot = new()
+        SnapshotInfo snapshot = new()
         {
             Version = 1,
             DefaultLocale = "en",
@@ -40,7 +42,7 @@ public sealed class PublicApiSmokeTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        GlyphReloadResult reload = new()
+        ReloadResult reload = new()
         {
             Success = true,
             OldVersion = 1,

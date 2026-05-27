@@ -1,6 +1,6 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
-internal static class GlyphErrorCodes
+internal static class ErrorCodes
 {
     public const string InvalidJson = "INVALID_JSON";
     public const string EmptyKey = "EMPTY_KEY";

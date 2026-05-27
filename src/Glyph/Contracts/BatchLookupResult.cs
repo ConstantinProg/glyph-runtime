@@ -1,9 +1,9 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Represents the result of a batch localization lookup.
 /// </summary>
-public sealed class GlyphBatchLookupResult
+public sealed class BatchLookupResult
 {
     /// <summary>
     /// Gets the original locale value provided by the caller.
@@ -18,5 +18,5 @@ public sealed class GlyphBatchLookupResult
     /// <summary>
     /// Gets lookup results in the same order as the input keys.
     /// </summary>
-    public required GlyphLookupResult[] Items { get; init; }
+    public required LookupResult[] Items { get; init; }
 }

@@ -1,11 +1,15 @@
-﻿namespace Glyph.Tests;
+﻿using Glyph.Contracts;
+using Glyph.Loading;
+using Glyph.Runtime;
+
+namespace Glyph.Tests;
 
 public sealed class GlyphFallbackChainBuilderTests
 {
     [Fact]
     public void Build_RuRu_UsesNeutralLocaleBeforeDefaultLocale()
     {
-        GlyphSnapshot snapshot = BuildSnapshot(
+        Snapshot snapshot = BuildSnapshot(
             defaultLocale: "en",
             fallbacks: new Dictionary<string, string[]>(),
             locales: ["en", "ru", "ru-RU"]);
@@ -17,7 +21,7 @@ public sealed class GlyphFallbackChainBuilderTests
     [Fact]
     public void Build_ExplicitFallback_AddsExplicitFallbackAfterRequestedLocale()
     {
-        GlyphSnapshot snapshot = BuildSnapshot(
+        Snapshot snapshot = BuildSnapshot(
             defaultLocale: "en",
             fallbacks: new Dictionary<string, string[]>
             {
@@ -32,7 +36,7 @@ public sealed class GlyphFallbackChainBuilderTests
     [Fact]
     public void Build_DuplicateFallbacks_RemovesDuplicates()
     {
-        GlyphSnapshot snapshot = BuildSnapshot(
+        Snapshot snapshot = BuildSnapshot(
             defaultLocale: "en",
             fallbacks: new Dictionary<string, string[]>
             {
@@ -47,7 +51,7 @@ public sealed class GlyphFallbackChainBuilderTests
     [Fact]
     public void Build_DefaultLocale_AppendsDefaultLocaleOnce()
     {
-        GlyphSnapshot snapshot = BuildSnapshot(
+        Snapshot snapshot = BuildSnapshot(
             defaultLocale: "en",
             fallbacks: new Dictionary<string, string[]>
             {
@@ -72,17 +76,17 @@ public sealed class GlyphFallbackChainBuilderTests
             }
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             CreateResources(["en", "ru", "ru-RU"]),
             oldSnapshotVersion: 0);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
-        Assert.Contains(result.Errors, error => error.Code == GlyphErrorCodes.FallbackCycle);
+        Assert.Contains(result.Errors, error => error.Code == ErrorCodes.FallbackCycle);
     }
 
-    private static GlyphSnapshot BuildSnapshot(
+    private static Snapshot BuildSnapshot(
         string defaultLocale,
         Dictionary<string, string[]> fallbacks,
         IReadOnlyList<string> locales)
@@ -93,7 +97,7 @@ public sealed class GlyphFallbackChainBuilderTests
             Fallbacks = fallbacks
         };
 
-        GlyphSnapshotBuildResult result = GlyphSnapshotBuilder.Build(
+        SnapshotBuildResult result = SnapshotBuilder.Build(
             options,
             CreateResources(locales),
             oldSnapshotVersion: 0);
@@ -104,10 +108,10 @@ public sealed class GlyphFallbackChainBuilderTests
         return result.Snapshot;
     }
 
-    private static GlyphLocaleResource[] CreateResources(IReadOnlyList<string> locales)
+    private static LocaleResource[] CreateResources(IReadOnlyList<string> locales)
     {
         return locales
-            .Select(locale => new GlyphLocaleResource
+            .Select(locale => new LocaleResource
             {
                 Locale = locale,
                 SourceName = $"{locale}.json",

@@ -1,9 +1,9 @@
-namespace Glyph;
+namespace Glyph.Contracts;
 
 /// <summary>
 /// Describes the result status of a localization lookup.
 /// </summary>
-public enum GlyphLookupStatus
+public enum LookupStatus
 {
     /// <summary>
     /// The key was found in the requested locale.

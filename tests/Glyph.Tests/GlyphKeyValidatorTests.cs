@@ -1,3 +1,5 @@
+using Glyph.Validation;
+
 namespace Glyph.Tests;
 
 public sealed class GlyphKeyValidatorTests
@@ -10,7 +12,7 @@ public sealed class GlyphKeyValidatorTests
     [InlineData("key_123")]
     public void IsValid_ReturnsTrue_WhenKeyIsValid(string key)
     {
-        Assert.True(GlyphKeyValidator.IsValid(key));
+        Assert.True(KeyValidator.IsValid(key));
     }
 
     [Theory]
@@ -22,12 +24,12 @@ public sealed class GlyphKeyValidatorTests
     [InlineData("ключ")]
     public void IsValid_ReturnsFalse_WhenKeyIsInvalid(string key)
     {
-        Assert.False(GlyphKeyValidator.IsValid(key));
+        Assert.False(KeyValidator.IsValid(key));
     }
 
     [Fact]
     public void IsValid_ReturnsFalse_WhenKeyIsNull()
     {
-        Assert.False(GlyphKeyValidator.IsValid(null));
+        Assert.False(KeyValidator.IsValid(null));
     }
 }
