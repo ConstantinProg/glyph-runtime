@@ -40,10 +40,16 @@ internal static class GlyphSnapshotBuilder
         FrozenDictionary<string, FrozenDictionary<string, string>> frozenTables =
             tables.ToFrozenDictionary(StringComparer.Ordinal);
 
-        FrozenDictionary<string, string[]> fallbackChains = BuildFallbackChains(
-            optionsValidation.DefaultLocale,
-            frozenTables.Keys,
-            optionsValidation.Fallbacks);
+        GlyphFallbackChainBuildResult fallbackChainBuildResult =
+            GlyphFallbackChainBuilder.Build(
+                optionsValidation.DefaultLocale,
+                frozenTables.Keys,
+                optionsValidation.Fallbacks);
+
+        if (!fallbackChainBuildResult.Success)
+        {
+            return Failure(fallbackChainBuildResult.Errors);
+        }
 
         string[] locales = frozenTables.Keys
             .Order(StringComparer.OrdinalIgnoreCase)
@@ -64,7 +70,7 @@ internal static class GlyphSnapshotBuilder
                 Version = oldSnapshotVersion + 1,
                 DefaultLocale = optionsValidation.DefaultLocale,
                 Tables = frozenTables,
-                FallbackChains = fallbackChains,
+                FallbackChains = fallbackChainBuildResult.Chains,
                 Locales = locales,
                 UniqueKeyCount = uniqueKeyCount,
                 TotalEntryCount = totalEntryCount,
@@ -111,79 +117,6 @@ internal static class GlyphSnapshotBuilder
         }
 
         return tables;
-    }
-
-    private static FrozenDictionary<string, string[]> BuildFallbackChains(
-        string defaultLocale,
-        IEnumerable<string> locales,
-        IReadOnlyDictionary<string, string[]> fallbacks)
-    {
-        HashSet<string> allLocales = new(StringComparer.Ordinal);
-
-        foreach (string locale in locales)
-        {
-            allLocales.Add(locale);
-        }
-
-        foreach (KeyValuePair<string, string[]> pair in fallbacks)
-        {
-            allLocales.Add(pair.Key);
-
-            foreach (string fallbackLocale in pair.Value)
-            {
-                allLocales.Add(fallbackLocale);
-            }
-        }
-
-        Dictionary<string, string[]> chains = new(StringComparer.Ordinal);
-
-        foreach (string locale in allLocales)
-        {
-            chains.Add(locale, BuildFallbackChainForLocale(locale, defaultLocale, fallbacks));
-        }
-
-        return chains.ToFrozenDictionary(StringComparer.Ordinal);
-    }
-
-    private static string[] BuildFallbackChainForLocale(
-        string locale,
-        string defaultLocale,
-        IReadOnlyDictionary<string, string[]> fallbacks)
-    {
-        List<string> chain = [];
-        HashSet<string> seen = new(StringComparer.Ordinal);
-
-        AddIfMissing(chain, seen, locale);
-
-        if (fallbacks.TryGetValue(locale, out string[]? explicitFallbacks))
-        {
-            foreach (string fallbackLocale in explicitFallbacks)
-            {
-                AddIfMissing(chain, seen, fallbackLocale);
-            }
-        }
-
-        string? neutralLocale = GlyphLocaleNormalizer.GetNeutralLocale(locale);
-
-        if (neutralLocale is not null)
-        {
-            AddIfMissing(chain, seen, neutralLocale);
-        }
-
-        AddIfMissing(chain, seen, defaultLocale);
-
-        return chain.ToArray();
-    }
-
-    private static void AddIfMissing(
-        List<string> chain,
-        HashSet<string> seen,
-        string locale)
-    {
-        if (seen.Add(locale))
-        {
-            chain.Add(locale);
-        }
     }
 
     private static GlyphSnapshotBuildResult Failure(IReadOnlyList<GlyphReloadError> errors)
