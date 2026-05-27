@@ -1,0 +1,8 @@
+{
+  "app.title": "Glyph sample",
+  "menu.play": "Play",
+  "menu.exit": "Exit",
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "reload.message": "Initial reload message"
+}
