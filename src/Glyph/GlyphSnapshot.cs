@@ -20,16 +20,12 @@ internal sealed class GlyphSnapshot
 
     public required DateTimeOffset CreatedAt { get; init; }
 
-    public bool HasLocale(string? locale)
-    {
-        return locale is not null && Tables.ContainsKey(locale);
-    }
-
     public bool TryGetPrecomputedFallbackChain(
         string? locale,
         out string[] fallbackChain)
     {
         if (locale is not null
+            && Tables.ContainsKey(locale)
             && FallbackChains.TryGetValue(locale, out string[]? foundChain))
         {
             fallbackChain = foundChain;
@@ -49,8 +45,7 @@ internal sealed class GlyphSnapshot
             return GetUsingPrecomputedFallbackChain(
                 originalLocale,
                 key,
-                fallbackChain,
-                requestedLocaleExists: true);
+                fallbackChain);
         }
 
         return GetUsingMissingLocaleFallbackToDefault(
@@ -61,8 +56,7 @@ internal sealed class GlyphSnapshot
     public GlyphLookupResult GetUsingPrecomputedFallbackChain(
         string? originalLocale,
         string? key,
-        string[] fallbackChain,
-        bool requestedLocaleExists)
+        string[] fallbackChain)
     {
         string resultLocale = originalLocale ?? string.Empty;
         string resultKey = key ?? string.Empty;
@@ -87,12 +81,8 @@ internal sealed class GlyphSnapshot
                 Version);
         }
 
-        GlyphLookupStatus missingStatus = requestedLocaleExists
-            ? GlyphLookupStatus.MissingKey
-            : GlyphLookupStatus.MissingLocale;
-
         return new GlyphLookupResult(
-            missingStatus,
+            GlyphLookupStatus.MissingKey,
             resultLocale,
             resultKey,
             null,

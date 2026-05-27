@@ -189,6 +189,47 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         Assert.Equal(2UL, runtime.GetSnapshotInfo().Version);
     }
 
+    [Fact]
+    public async Task ReloadAsync_DoesNotUseMutatedOriginalOptions()
+    {
+        WriteJson("en", """
+        {
+          "menu.play": "Play"
+        }
+        """);
+
+        GlyphOptions options = new()
+        {
+            ResourcesPath = _resourcesPath,
+            DefaultLocale = "en"
+        };
+
+        GlyphRuntime runtime = CreateRuntime(options);
+
+        options.ResourcesPath = Path.Combine(
+            Path.GetTempPath(),
+            "glyph-tests-missing",
+            Guid.NewGuid().ToString("N"));
+
+        WriteJson("en", """
+        {
+          "menu.play": "Start"
+        }
+        """);
+
+        GlyphReloadResult reloadResult = await runtime.ReloadAsync();
+
+        Assert.True(reloadResult.Success);
+        Assert.Equal(1UL, reloadResult.OldVersion);
+        Assert.Equal(2UL, reloadResult.NewVersion);
+
+        GlyphLookupResult after = runtime.Get("en", "menu.play");
+
+        Assert.Equal(GlyphLookupStatus.Found, after.Status);
+        Assert.Equal("Start", after.Value);
+        Assert.Equal(2UL, after.SnapshotVersion);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_resourcesPath))
@@ -199,18 +240,30 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
 
     private GlyphRuntime CreateRuntime()
     {
-        GlyphOptions options = new()
+        return CreateRuntime(new GlyphOptions
         {
             ResourcesPath = _resourcesPath,
             DefaultLocale = "en"
-        };
+        });
+    }
 
-        GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_resourcesPath);
+    private GlyphRuntime CreateRuntime(GlyphOptions options)
+    {
+        GlyphOptionsValidationResult validationResult =
+            GlyphOptionsValidator.Validate(options);
+
+        Assert.True(validationResult.Success);
+
+        GlyphRuntimeConfiguration configuration =
+            GlyphRuntimeConfiguration.From(validationResult);
+
+        GlyphLoadResult loadResult =
+            GlyphJsonResourceLoader.Load(configuration.ResourcesPath);
 
         Assert.True(loadResult.Success);
 
         GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
-            options,
+            configuration.ToGlyphOptions(),
             loadResult.Resources,
             oldSnapshotVersion: 0);
 
@@ -219,7 +272,7 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
 
         return new GlyphRuntime(
             new GlyphSnapshotStore(buildResult.Snapshot),
-            options);
+            configuration);
     }
 
     private void WriteJson(string locale, string json)

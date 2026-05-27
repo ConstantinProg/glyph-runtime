@@ -3,18 +3,18 @@ namespace Glyph;
 internal sealed class GlyphRuntime : IGlyph
 {
     private readonly GlyphSnapshotStore _snapshotStore;
-    private readonly GlyphOptions _options;
+    private readonly GlyphRuntimeConfiguration _configuration;
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
     public GlyphRuntime(
         GlyphSnapshotStore snapshotStore,
-        GlyphOptions options)
+        GlyphRuntimeConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(snapshotStore);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configuration);
 
         _snapshotStore = snapshotStore;
-        _options = options;
+        _configuration = configuration;
     }
 
     public GlyphLookupResult Get(string locale, string key)
@@ -42,8 +42,7 @@ internal sealed class GlyphRuntime : IGlyph
                 items[i] = snapshot.GetUsingPrecomputedFallbackChain(
                     locale,
                     keys[i],
-                    fallbackChain,
-                    requestedLocaleExists: true);
+                    fallbackChain);
             }
         }
         else
@@ -72,7 +71,7 @@ internal sealed class GlyphRuntime : IGlyph
         {
             Version = snapshot.Version,
             DefaultLocale = snapshot.DefaultLocale,
-            Locales = snapshot.Locales,
+            Locales = snapshot.Locales.ToArray(),
             UniqueKeyCount = snapshot.UniqueKeyCount,
             TotalEntryCount = snapshot.TotalEntryCount,
             CreatedAt = snapshot.CreatedAt
@@ -91,7 +90,7 @@ internal sealed class GlyphRuntime : IGlyph
             cancellationToken.ThrowIfCancellationRequested();
 
             GlyphSnapshot current = _snapshotStore.Current;
-            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_options.ResourcesPath);
+            GlyphLoadResult loadResult = GlyphJsonResourceLoader.Load(_configuration.ResourcesPath);
 
             if (!loadResult.Success)
             {
@@ -101,7 +100,7 @@ internal sealed class GlyphRuntime : IGlyph
             cancellationToken.ThrowIfCancellationRequested();
 
             GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
-                _options,
+                _configuration.ToGlyphOptions(),
                 loadResult.Resources,
                 current.Version);
 

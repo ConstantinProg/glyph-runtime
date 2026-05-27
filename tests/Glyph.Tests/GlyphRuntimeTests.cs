@@ -78,6 +78,36 @@ public sealed class GlyphRuntimeTests
     }
 
     [Fact]
+    public void Get_WhenLocaleExistsOnlyInFallbackConfiguration_ReturnsMissingLocale()
+    {
+        GlyphRuntime runtime = CreateRuntimeWithFallbackOnlyLocale();
+
+        GlyphLookupResult result = runtime.Get("fr-FR", "missing.key");
+
+        Assert.Equal(GlyphLookupStatus.MissingLocale, result.Status);
+        Assert.Equal("fr-FR", result.Locale);
+        Assert.Equal("missing.key", result.Key);
+        Assert.Null(result.Value);
+        Assert.Null(result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
+    public void Get_WhenLocaleExistsOnlyInFallbackConfigurationAndDefaultContainsKey_ReturnsFoundViaFallback()
+    {
+        GlyphRuntime runtime = CreateRuntimeWithFallbackOnlyLocale();
+
+        GlyphLookupResult result = runtime.Get("fr-FR", "menu.play");
+
+        Assert.Equal(GlyphLookupStatus.FoundViaFallback, result.Status);
+        Assert.Equal("fr-FR", result.Locale);
+        Assert.Equal("menu.play", result.Key);
+        Assert.Equal("Play", result.Value);
+        Assert.Equal("en", result.ResolvedLocale);
+        Assert.Equal(1UL, result.SnapshotVersion);
+    }
+
+    [Fact]
     public void Get_WhenLocaleHasInvalidFormat_DoesNotThrowAndFallsBackToDefaultLocale()
     {
         GlyphRuntime runtime = CreateRuntime();
@@ -289,6 +319,21 @@ public sealed class GlyphRuntimeTests
         Assert.NotEqual(default, info.CreatedAt);
     }
 
+    [Fact]
+    public void GetSnapshotInfo_DoesNotExposeMutableSnapshotLocales()
+    {
+        GlyphRuntime runtime = CreateRuntime();
+
+        GlyphSnapshotInfo firstInfo = runtime.GetSnapshotInfo();
+
+        string[] exposedLocales = Assert.IsType<string[]>(firstInfo.Locales);
+        exposedLocales[0] = "mutated";
+
+        GlyphSnapshotInfo secondInfo = runtime.GetSnapshotInfo();
+
+        Assert.Equal(["en", "ru", "ru-RU"], secondInfo.Locales);
+    }
+
     private static GlyphRuntime CreateRuntime()
     {
         GlyphOptions options = new()
@@ -300,6 +345,11 @@ public sealed class GlyphRuntimeTests
             }
         };
 
+        GlyphOptionsValidationResult validationResult =
+            GlyphOptionsValidator.Validate(options);
+
+        Assert.True(validationResult.Success);
+
         GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
             options,
             CreateResources(),
@@ -310,7 +360,36 @@ public sealed class GlyphRuntimeTests
 
         return new GlyphRuntime(
             new GlyphSnapshotStore(buildResult.Snapshot),
-            options);
+            GlyphRuntimeConfiguration.From(validationResult));
+    }
+
+    private static GlyphRuntime CreateRuntimeWithFallbackOnlyLocale()
+    {
+        GlyphOptions options = new()
+        {
+            DefaultLocale = "en",
+            Fallbacks =
+            {
+                ["fr-FR"] = ["fr", "en"]
+            }
+        };
+
+        GlyphOptionsValidationResult validationResult =
+            GlyphOptionsValidator.Validate(options);
+
+        Assert.True(validationResult.Success);
+
+        GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
+            options,
+            CreateResources(),
+            oldSnapshotVersion: 0);
+
+        Assert.True(buildResult.Success);
+        Assert.NotNull(buildResult.Snapshot);
+
+        return new GlyphRuntime(
+            new GlyphSnapshotStore(buildResult.Snapshot),
+            GlyphRuntimeConfiguration.From(validationResult));
     }
 
     private static GlyphLocaleResource[] CreateResources()

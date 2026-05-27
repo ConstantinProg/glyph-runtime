@@ -41,10 +41,7 @@ internal static class GlyphFallbackChainBuilder
             return Failure(errors);
         }
 
-        HashSet<string> allLocales = new(StringComparer.Ordinal)
-        {
-            normalizedDefaultLocale
-        };
+        HashSet<string> resourceLocales = new(StringComparer.Ordinal);
 
         foreach (string locale in locales)
         {
@@ -60,17 +57,7 @@ internal static class GlyphFallbackChainBuilder
                 continue;
             }
 
-            allLocales.Add(normalizedLocale);
-        }
-
-        foreach (KeyValuePair<string, string[]> pair in normalizedFallbacks)
-        {
-            allLocales.Add(pair.Key);
-
-            foreach (string fallbackLocale in pair.Value)
-            {
-                allLocales.Add(fallbackLocale);
-            }
+            resourceLocales.Add(normalizedLocale);
         }
 
         if (errors.Count > 0)
@@ -80,7 +67,7 @@ internal static class GlyphFallbackChainBuilder
 
         Dictionary<string, string[]> chains = new(StringComparer.Ordinal);
 
-        foreach (string locale in allLocales)
+        foreach (string locale in resourceLocales)
         {
             chains.Add(
                 locale,

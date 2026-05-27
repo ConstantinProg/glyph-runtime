@@ -20,10 +20,13 @@ public static class GlyphHost
             throw CreateInitializationException(optionsValidation.Errors);
         }
 
+        GlyphRuntimeConfiguration configuration =
+            GlyphRuntimeConfiguration.From(optionsValidation);
+
         cancellationToken.ThrowIfCancellationRequested();
 
         GlyphLoadResult loadResult =
-            GlyphJsonResourceLoader.Load(optionsValidation.ResourcesPath);
+            GlyphJsonResourceLoader.Load(configuration.ResourcesPath);
 
         if (!loadResult.Success)
         {
@@ -33,7 +36,7 @@ public static class GlyphHost
         cancellationToken.ThrowIfCancellationRequested();
 
         GlyphSnapshotBuildResult buildResult = GlyphSnapshotBuilder.Build(
-            options,
+            configuration.ToGlyphOptions(),
             loadResult.Resources,
             oldSnapshotVersion: 0);
 
@@ -44,7 +47,7 @@ public static class GlyphHost
 
         IGlyph runtime = new GlyphRuntime(
             new GlyphSnapshotStore(buildResult.Snapshot),
-            options);
+            configuration);
 
         return ValueTask.FromResult(runtime);
     }
