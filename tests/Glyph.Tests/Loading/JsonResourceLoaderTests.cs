@@ -1,9 +1,9 @@
 using Glyph.Contracts;
 using Glyph.Loading;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Loading;
 
-public sealed class GlyphJsonResourceLoaderTests
+public sealed class JsonResourceLoaderTests
 {
     [Fact]
     public void Load_ReturnsResource_WhenJsonIsFlatObject()

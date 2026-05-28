@@ -1,6 +1,6 @@
-namespace Glyph.Tests;
+namespace Glyph.Tests.Validation;
 
-public sealed class GlyphLocaleNormalizerTests
+public sealed class LocaleNormalizerTests
 {
     [Theory]
     [InlineData("en", "en")]

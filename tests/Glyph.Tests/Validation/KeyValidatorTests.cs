@@ -1,8 +1,8 @@
 using Glyph.Validation;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Validation;
 
-public sealed class GlyphKeyValidatorTests
+public sealed class KeyValidatorTests
 {
     [Theory]
     [InlineData("menu.play")]

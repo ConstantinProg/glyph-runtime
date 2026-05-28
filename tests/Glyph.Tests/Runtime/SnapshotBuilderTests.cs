@@ -2,9 +2,9 @@
 using Glyph.Loading;
 using Glyph.Runtime;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Runtime;
 
-public sealed class GlyphSnapshotBuilderTests
+public sealed class SnapshotBuilderTests
 {
     [Fact]
     public void Build_CreatesSnapshot_WhenResourcesAreValid()

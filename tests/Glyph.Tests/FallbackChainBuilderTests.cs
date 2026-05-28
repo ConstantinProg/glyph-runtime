@@ -4,7 +4,7 @@ using Glyph.Runtime;
 
 namespace Glyph.Tests;
 
-public sealed class GlyphFallbackChainBuilderTests
+public sealed class FallbackChainBuilderTests
 {
     [Fact]
     public void Build_RuRu_UsesNeutralLocaleBeforeDefaultLocale()

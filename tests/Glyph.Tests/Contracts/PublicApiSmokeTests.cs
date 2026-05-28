@@ -1,6 +1,6 @@
 using Glyph.Contracts;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Contracts;
 
 public sealed class PublicApiSmokeTests
 {

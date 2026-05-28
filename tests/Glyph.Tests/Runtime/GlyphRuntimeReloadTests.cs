@@ -4,7 +4,7 @@ using Glyph.Runtime;
 using Glyph.Validation;
 using Xunit;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Runtime;
 
 public sealed class GlyphRuntimeReloadTests : IDisposable
 {

@@ -2,9 +2,9 @@ using Glyph.Contracts;
 using Glyph.Loading;
 using Glyph.Runtime;
 
-namespace Glyph.Tests;
+namespace Glyph.Tests.Runtime;
 
-public sealed class GlyphSnapshotStoreTests
+public sealed class SnapshotStoreTests
 {
     [Fact]
     public void Current_ReturnsInitialSnapshot()
