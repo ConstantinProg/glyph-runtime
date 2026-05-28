@@ -1,5 +1,4 @@
 ﻿using Glyph.Contracts;
-using Glyph.Loading;
 using Glyph.Runtime;
 
 namespace Glyph.Tests.Runtime;
@@ -7,26 +6,22 @@ namespace Glyph.Tests.Runtime;
 public sealed class SnapshotBuilderTests
 {
     [Fact]
-    public void Build_CreatesSnapshot_WhenResourcesAreValid()
+    public void Build_CreatesSnapshot_WhenPackageIsValid()
     {
-        GlyphOptions options = new()
-        {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en",
-            Fallbacks =
+        LocalizationPackage package = CreatePackage(
+            version: 11,
+            defaultLocale: "en",
+            fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = ["ru", "en"]
-            }
-        };
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
+            },
             [
                 CreateResource("en", ("menu.play", "Play")),
                 CreateResource("ru", ("menu.play", "Играть")),
                 CreateResource("ru-RU", ("menu.exit", "Выход"))
-            ],
-            oldSnapshotVersion: 10);
+            ]);
+
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.True(result.Success);
         Assert.NotNull(result.Snapshot);
@@ -40,16 +35,13 @@ public sealed class SnapshotBuilderTests
     [Fact]
     public void Build_ReturnsError_WhenDefaultLocaleTableIsMissing()
     {
-        GlyphOptions options = new()
-        {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en"
-        };
+        LocalizationPackage package = CreatePackage(
+            version: 5,
+            defaultLocale: "en",
+            fallbacks: [],
+            [CreateResource("ru", ("menu.play", "Играть"))]);
 
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
-            [CreateResource("ru", ("menu.play", "Играть"))],
-            oldSnapshotVersion: 5);
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
@@ -61,23 +53,19 @@ public sealed class SnapshotBuilderTests
     [Fact]
     public void Build_ReturnsError_WhenFallbackContainsNullLocale()
     {
-        GlyphOptions options = new()
-        {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en",
-            Fallbacks =
+        LocalizationPackage package = CreatePackage(
+            version: 5,
+            defaultLocale: "en",
+            fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = [null!]
-            }
-        };
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
+            },
             [
                 CreateResource("en", ("menu.play", "Play")),
                 CreateResource("ru-RU", ("menu.play", "Играть"))
-            ],
-            oldSnapshotVersion: 5);
+            ]);
+
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
@@ -89,25 +77,21 @@ public sealed class SnapshotBuilderTests
     [Fact]
     public void Build_ReturnsError_WhenFallbackCycleExists()
     {
-        GlyphOptions options = new()
-        {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en",
-            Fallbacks =
+        LocalizationPackage package = CreatePackage(
+            version: 5,
+            defaultLocale: "en",
+            fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = ["ru"],
                 ["ru"] = ["ru-RU"]
-            }
-        };
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
+            },
             [
                 CreateResource("en", ("menu.play", "Play")),
                 CreateResource("ru", ("menu.play", "Играть")),
                 CreateResource("ru-RU", ("menu.play", "Играть"))
-            ],
-            oldSnapshotVersion: 5);
+            ]);
+
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
@@ -119,24 +103,20 @@ public sealed class SnapshotBuilderTests
     [Fact]
     public void Build_PrecomputesFallbackChains()
     {
-        GlyphOptions options = new()
-        {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en",
-            Fallbacks =
+        LocalizationPackage package = CreatePackage(
+            version: 2,
+            defaultLocale: "en",
+            fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = ["ru"]
-            }
-        };
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
+            },
             [
                 CreateResource("en", ("menu.play", "Play")),
                 CreateResource("ru", ("menu.play", "Играть")),
                 CreateResource("ru-RU", ("menu.exit", "Выход"))
-            ],
-            oldSnapshotVersion: 1);
+            ]);
+
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.True(result.Success);
         Assert.NotNull(result.Snapshot);
@@ -149,11 +129,26 @@ public sealed class SnapshotBuilderTests
         Assert.Equal(["ru-RU", "ru", "en"], chain);
     }
 
-    private static LocaleResource CreateResource(
+    private static LocalizationPackage CreatePackage(
+        ulong version,
+        string defaultLocale,
+        Dictionary<string, string[]> fallbacks,
+        LocalizationResource[] resources)
+    {
+        return new LocalizationPackage
+        {
+            Version = version,
+            DefaultLocale = defaultLocale,
+            Fallbacks = fallbacks,
+            Resources = resources
+        };
+    }
+
+    private static LocalizationResource CreateResource(
         string locale,
         params (string Key, string Value)[] values)
     {
-        return new LocaleResource
+        return new LocalizationResource
         {
             Locale = locale,
             SourceName = $"{locale}.json",

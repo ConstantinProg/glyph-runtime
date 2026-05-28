@@ -93,19 +93,21 @@ internal sealed class GlyphRuntime : IGlyphRuntime
             cancellationToken.ThrowIfCancellationRequested();
 
             Snapshot current = _snapshotStore.Current;
-            LoadResult loadResult = JsonResourceLoader.Load(_configuration.ResourcesPath);
 
-            if (!loadResult.Success)
+            LocalizationPackageLoadResult loadResult =
+                JsonLocalizationPackageLoader.Load(
+                    _configuration,
+                    packageVersion: current.Version + 1);
+
+            if (!loadResult.Success || loadResult.Package is null)
             {
                 return CreateFailedReloadResult(current, loadResult.Errors);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            SnapshotBuildResult buildResult = SnapshotBuilder.Build(
-                _configuration.ToGlyphOptions(),
-                loadResult.Resources,
-                current.Version);
+            SnapshotBuildResult buildResult =
+                SnapshotBuilder.Build(loadResult.Package);
 
             if (!buildResult.Success || buildResult.Snapshot is null)
             {

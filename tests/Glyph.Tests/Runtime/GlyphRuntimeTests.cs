@@ -1,5 +1,4 @@
 ﻿using Glyph.Contracts;
-using Glyph.Loading;
 using Glyph.Runtime;
 using Glyph.Validation;
 
@@ -350,22 +349,7 @@ public sealed class GlyphRuntimeTests
             }
         };
 
-        OptionsValidationResult validationResult =
-            OptionsValidator.Validate(options);
-
-        Assert.True(validationResult.Success);
-
-        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
-            options,
-            CreateResources(),
-            oldSnapshotVersion: 0);
-
-        Assert.True(buildResult.Success);
-        Assert.NotNull(buildResult.Snapshot);
-
-        return new GlyphRuntime(
-            new SnapshotStore(buildResult.Snapshot),
-            RuntimeConfiguration.From(validationResult));
+        return CreateRuntime(options);
     }
 
     private static GlyphRuntime CreateRuntimeWithFallbackOnlyLocale()
@@ -379,15 +363,23 @@ public sealed class GlyphRuntimeTests
             }
         };
 
+        return CreateRuntime(options);
+    }
+
+    private static GlyphRuntime CreateRuntime(GlyphOptions options)
+    {
         OptionsValidationResult validationResult =
             OptionsValidator.Validate(options);
 
         Assert.True(validationResult.Success);
 
-        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
-            options,
-            CreateResources(),
-            oldSnapshotVersion: 0);
+        LocalizationPackage package = CreatePackage(
+            version: 1,
+            defaultLocale: validationResult.DefaultLocale,
+            fallbacks: validationResult.Fallbacks);
+
+        SnapshotBuildResult buildResult =
+            SnapshotBuilder.Build(package);
 
         Assert.True(buildResult.Success);
         Assert.NotNull(buildResult.Snapshot);
@@ -397,11 +389,38 @@ public sealed class GlyphRuntimeTests
             RuntimeConfiguration.From(validationResult));
     }
 
-    private static LocaleResource[] CreateResources()
+    private static LocalizationPackage CreatePackage(
+        ulong version,
+        string defaultLocale,
+        IReadOnlyDictionary<string, string[]> fallbacks)
+    {
+        return new LocalizationPackage
+        {
+            Version = version,
+            DefaultLocale = defaultLocale,
+            Fallbacks = CopyFallbacks(fallbacks),
+            Resources = CreateResources()
+        };
+    }
+
+    private static Dictionary<string, string[]> CopyFallbacks(
+        IReadOnlyDictionary<string, string[]> fallbacks)
+    {
+        Dictionary<string, string[]> copy = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, string[]> pair in fallbacks)
+        {
+            copy[pair.Key] = pair.Value.ToArray();
+        }
+
+        return copy;
+    }
+
+    private static LocalizationResource[] CreateResources()
     {
         return
         [
-            new LocaleResource
+            new LocalizationResource
             {
                 Locale = "en",
                 SourceName = "en.json",
@@ -411,7 +430,7 @@ public sealed class GlyphRuntimeTests
                     ["menu.exit"] = "Exit"
                 }
             },
-            new LocaleResource
+            new LocalizationResource
             {
                 Locale = "ru",
                 SourceName = "ru.json",
@@ -420,7 +439,7 @@ public sealed class GlyphRuntimeTests
                     ["menu.play"] = "Играть"
                 }
             },
-            new LocaleResource
+            new LocalizationResource
             {
                 Locale = "ru-RU",
                 SourceName = "ru-RU.json",

@@ -174,19 +174,13 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
                 Assert.NotNull(result.Value);
                 Assert.True(result.SnapshotVersion is 1UL or 2UL);
             }
-        }, cancellationTokenSource.Token);
+        });
 
         ReloadResult reloadResult = await runtime.ReloadAsync();
 
         cancellationTokenSource.Cancel();
 
-        try
-        {
-            await lookupTask;
-        }
-        catch (OperationCanceledException)
-        {
-        }
+        await lookupTask;
 
         Assert.True(reloadResult.Success);
         Assert.Equal(2UL, runtime.GetSnapshotInfo().Version);
@@ -260,15 +254,16 @@ public sealed class GlyphRuntimeReloadTests : IDisposable
         RuntimeConfiguration configuration =
             RuntimeConfiguration.From(validationResult);
 
-        LoadResult loadResult =
-            JsonResourceLoader.Load(configuration.ResourcesPath);
+        LocalizationPackageLoadResult loadResult =
+            JsonLocalizationPackageLoader.Load(
+                configuration,
+                packageVersion: 1);
 
         Assert.True(loadResult.Success);
+        Assert.NotNull(loadResult.Package);
 
-        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
-            configuration.ToGlyphOptions(),
-            loadResult.Resources,
-            oldSnapshotVersion: 0);
+        SnapshotBuildResult buildResult =
+            SnapshotBuilder.Build(loadResult.Package);
 
         Assert.True(buildResult.Success);
         Assert.NotNull(buildResult.Snapshot);

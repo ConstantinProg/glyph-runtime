@@ -1,5 +1,4 @@
 ﻿using Glyph.Contracts;
-using Glyph.Loading;
 using Glyph.Runtime;
 
 namespace Glyph.Tests;
@@ -66,20 +65,17 @@ public sealed class FallbackChainBuilderTests
     [Fact]
     public void Build_FallbackCycle_ReturnsFallbackCycleError()
     {
-        GlyphOptions options = new()
-        {
-            DefaultLocale = "en",
-            Fallbacks =
+        LocalizationPackage package = CreatePackage(
+            version: 1,
+            defaultLocale: "en",
+            fallbacks: new Dictionary<string, string[]>
             {
                 ["ru-RU"] = ["ru"],
                 ["ru"] = ["ru-RU"]
-            }
-        };
+            },
+            locales: ["en", "ru", "ru-RU"]);
 
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
-            CreateResources(["en", "ru", "ru-RU"]),
-            oldSnapshotVersion: 0);
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
@@ -91,16 +87,13 @@ public sealed class FallbackChainBuilderTests
         Dictionary<string, string[]> fallbacks,
         IReadOnlyList<string> locales)
     {
-        GlyphOptions options = new()
-        {
-            DefaultLocale = defaultLocale,
-            Fallbacks = fallbacks
-        };
+        LocalizationPackage package = CreatePackage(
+            version: 1,
+            defaultLocale: defaultLocale,
+            fallbacks: fallbacks,
+            locales: locales);
 
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
-            CreateResources(locales),
-            oldSnapshotVersion: 0);
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.True(result.Success);
         Assert.NotNull(result.Snapshot);
@@ -108,10 +101,25 @@ public sealed class FallbackChainBuilderTests
         return result.Snapshot;
     }
 
-    private static LocaleResource[] CreateResources(IReadOnlyList<string> locales)
+    private static LocalizationPackage CreatePackage(
+        ulong version,
+        string defaultLocale,
+        Dictionary<string, string[]> fallbacks,
+        IReadOnlyList<string> locales)
+    {
+        return new LocalizationPackage
+        {
+            Version = version,
+            DefaultLocale = defaultLocale,
+            Fallbacks = fallbacks,
+            Resources = CreateResources(locales)
+        };
+    }
+
+    private static LocalizationResource[] CreateResources(IReadOnlyList<string> locales)
     {
         return locales
-            .Select(locale => new LocaleResource
+            .Select(locale => new LocalizationResource
             {
                 Locale = locale,
                 SourceName = $"{locale}.json",

@@ -1,6 +1,5 @@
 ﻿using Glyph.Contracts;
 using Glyph.Fallbacks;
-using Glyph.Loading;
 using Glyph.Validation;
 using System.Collections.Frozen;
 
@@ -8,31 +7,24 @@ namespace Glyph.Runtime;
 
 internal static class SnapshotBuilder
 {
-    public static SnapshotBuildResult Build(
-        GlyphOptions options,
-        IReadOnlyList<LocaleResource> resources,
-        ulong oldSnapshotVersion)
+    public static SnapshotBuildResult Build(LocalizationPackage package)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(resources);
-
-        OptionsValidationResult optionsValidation = OptionsValidator.Validate(options);
-
-        if (!optionsValidation.Success)
-        {
-            return Failure(optionsValidation.Errors);
-        }
+        ArgumentNullException.ThrowIfNull(package);
 
         List<ReloadError> errors = [];
-        Dictionary<string, FrozenDictionary<string, string>> tables = BuildTables(resources, errors);
 
-        if (!tables.ContainsKey(optionsValidation.DefaultLocale))
+        string defaultLocale = ValidateDefaultLocale(package, errors);
+        Dictionary<string, string[]> fallbacks = ValidateFallbacks(package, errors);
+        Dictionary<string, FrozenDictionary<string, string>> tables =
+            BuildTables(package, errors);
+
+        if (defaultLocale.Length > 0 && !tables.ContainsKey(defaultLocale))
         {
             errors.Add(new ReloadError
             {
                 Code = ErrorCodes.MissingDefaultLocale,
                 Message = "Default locale table was not found.",
-                Locale = optionsValidation.DefaultLocale
+                Locale = defaultLocale
             });
         }
 
@@ -46,9 +38,9 @@ internal static class SnapshotBuilder
 
         FallbackChainBuildResult fallbackChainBuildResult =
             FallbackChainBuilder.Build(
-                optionsValidation.DefaultLocale,
+                defaultLocale,
                 frozenTables.Keys,
-                optionsValidation.Fallbacks);
+                fallbacks);
 
         if (!fallbackChainBuildResult.Success)
         {
@@ -71,8 +63,8 @@ internal static class SnapshotBuilder
             Success = true,
             Snapshot = new Snapshot
             {
-                Version = oldSnapshotVersion + 1,
-                DefaultLocale = optionsValidation.DefaultLocale,
+                Version = package.Version,
+                DefaultLocale = defaultLocale,
                 Tables = frozenTables,
                 FallbackChains = fallbackChainBuildResult.Chains,
                 Locales = locales,
@@ -83,14 +75,130 @@ internal static class SnapshotBuilder
         };
     }
 
-    private static Dictionary<string, FrozenDictionary<string, string>> BuildTables(
-        IReadOnlyList<LocaleResource> resources,
+    private static string ValidateDefaultLocale(
+        LocalizationPackage package,
         List<ReloadError> errors)
     {
-        Dictionary<string, FrozenDictionary<string, string>> tables = new(StringComparer.Ordinal);
-
-        foreach (LocaleResource resource in resources)
+        if (!LocaleNormalizer.TryNormalize(
+                package.DefaultLocale,
+                out string defaultLocale))
         {
+            errors.Add(new ReloadError
+            {
+                Code = ErrorCodes.InvalidLocale,
+                Message = "DefaultLocale is invalid.",
+                Locale = package.DefaultLocale
+            });
+
+            return string.Empty;
+        }
+
+        return defaultLocale;
+    }
+
+    private static Dictionary<string, string[]> ValidateFallbacks(
+        LocalizationPackage package,
+        List<ReloadError> errors)
+    {
+        Dictionary<string, string[]> normalizedFallbacks = new(StringComparer.Ordinal);
+
+        if (package.Fallbacks is null)
+        {
+            errors.Add(new ReloadError
+            {
+                Code = ErrorCodes.InvalidLocalizationPackage,
+                Message = "Fallbacks must not be null."
+            });
+
+            return normalizedFallbacks;
+        }
+
+        foreach (KeyValuePair<string, string[]> pair in package.Fallbacks)
+        {
+            if (!LocaleNormalizer.TryNormalize(pair.Key, out string normalizedLocale))
+            {
+                errors.Add(new ReloadError
+                {
+                    Code = ErrorCodes.InvalidLocale,
+                    Message = "Fallback source locale is invalid.",
+                    Locale = pair.Key
+                });
+
+                continue;
+            }
+
+            if (pair.Value is null)
+            {
+                errors.Add(new ReloadError
+                {
+                    Code = ErrorCodes.InvalidLocalizationPackage,
+                    Message = "Fallback locale array must not be null.",
+                    Locale = normalizedLocale
+                });
+
+                continue;
+            }
+
+            List<string> normalizedItems = [];
+
+            for (int i = 0; i < pair.Value.Length; i++)
+            {
+                string? fallbackLocale = pair.Value[i];
+
+                if (!LocaleNormalizer.TryNormalize(
+                        fallbackLocale,
+                        out string normalizedFallbackLocale))
+                {
+                    errors.Add(new ReloadError
+                    {
+                        Code = ErrorCodes.InvalidLocale,
+                        Message = $"Fallback locale item at index {i} is invalid.",
+                        Locale = fallbackLocale
+                    });
+
+                    continue;
+                }
+
+                normalizedItems.Add(normalizedFallbackLocale);
+            }
+
+            normalizedFallbacks[normalizedLocale] = normalizedItems.ToArray();
+        }
+
+        return normalizedFallbacks;
+    }
+
+    private static Dictionary<string, FrozenDictionary<string, string>> BuildTables(
+        LocalizationPackage package,
+        List<ReloadError> errors)
+    {
+        Dictionary<string, FrozenDictionary<string, string>> tables =
+            new(StringComparer.Ordinal);
+
+        if (package.Resources is null)
+        {
+            errors.Add(new ReloadError
+            {
+                Code = ErrorCodes.InvalidLocalizationPackage,
+                Message = "Resources must not be null."
+            });
+
+            return tables;
+        }
+
+        foreach (LocalizationResource? resource in package.Resources)
+        {
+            if (resource is null)
+            {
+                errors.Add(new ReloadError
+                {
+                    Code = ErrorCodes.InvalidLocalizationPackage,
+                    Message = "Resource item must not be null."
+                });
+
+                continue;
+            }
+
             if (!LocaleNormalizer.TryNormalize(resource.Locale, out string locale))
             {
                 errors.Add(new ReloadError
@@ -99,6 +207,19 @@ internal static class SnapshotBuilder
                     Message = "Resource locale is invalid.",
                     SourceName = resource.SourceName,
                     Locale = resource.Locale
+                });
+
+                continue;
+            }
+
+            if (resource.Values is null)
+            {
+                errors.Add(new ReloadError
+                {
+                    Code = ErrorCodes.InvalidLocalizationPackage,
+                    Message = "Resource values must not be null.",
+                    SourceName = resource.SourceName,
+                    Locale = locale
                 });
 
                 continue;
@@ -117,7 +238,66 @@ internal static class SnapshotBuilder
                 continue;
             }
 
-            tables.Add(locale, resource.Values.ToFrozenDictionary(StringComparer.Ordinal));
+            Dictionary<string, string> values = new(StringComparer.Ordinal);
+
+            foreach (KeyValuePair<string, string> pair in resource.Values)
+            {
+                if (string.IsNullOrEmpty(pair.Key))
+                {
+                    errors.Add(new ReloadError
+                    {
+                        Code = ErrorCodes.EmptyKey,
+                        Message = "Localization key must not be empty.",
+                        SourceName = resource.SourceName,
+                        Locale = locale,
+                        Key = pair.Key
+                    });
+
+                    continue;
+                }
+
+                if (!KeyValidator.IsValid(pair.Key))
+                {
+                    errors.Add(new ReloadError
+                    {
+                        Code = ErrorCodes.InvalidKey,
+                        Message = "Localization key contains invalid characters.",
+                        SourceName = resource.SourceName,
+                        Locale = locale,
+                        Key = pair.Key
+                    });
+
+                    continue;
+                }
+
+                if (pair.Value is null)
+                {
+                    errors.Add(new ReloadError
+                    {
+                        Code = ErrorCodes.NullValue,
+                        Message = "Localization value must not be null.",
+                        SourceName = resource.SourceName,
+                        Locale = locale,
+                        Key = pair.Key
+                    });
+
+                    continue;
+                }
+
+                if (!values.TryAdd(pair.Key, pair.Value))
+                {
+                    errors.Add(new ReloadError
+                    {
+                        Code = ErrorCodes.DuplicateKey,
+                        Message = "Duplicate localization key.",
+                        SourceName = resource.SourceName,
+                        Locale = locale,
+                        Key = pair.Key
+                    });
+                }
+            }
+
+            tables.Add(locale, values.ToFrozenDictionary(StringComparer.Ordinal));
         }
 
         return tables;

@@ -1,6 +1,6 @@
-﻿namespace Glyph.Contracts;
+namespace Glyph.Contracts;
 
-public sealed class SnapshotPackage
+public sealed class LocalizationPackage
 {
     public required ulong Version { get; init; }
 
@@ -8,5 +8,5 @@ public sealed class SnapshotPackage
 
     public Dictionary<string, string[]> Fallbacks { get; init; } = new();
 
-    public required SnapshotLocalePackage[] Locales { get; init; }
+    public required LocalizationResource[] Resources { get; init; }
 }

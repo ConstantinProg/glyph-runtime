@@ -29,20 +29,20 @@ public static class GlyphHost
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        LoadResult loadResult =
-            JsonResourceLoader.Load(configuration.ResourcesPath);
+        LocalizationPackageLoadResult loadResult =
+            JsonLocalizationPackageLoader.Load(
+                configuration,
+                packageVersion: 1);
 
-        if (!loadResult.Success)
+        if (!loadResult.Success || loadResult.Package is null)
         {
             throw CreateInitializationException(loadResult.Errors);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        SnapshotBuildResult buildResult = SnapshotBuilder.Build(
-            configuration.ToGlyphOptions(),
-            loadResult.Resources,
-            oldSnapshotVersion: 0);
+        SnapshotBuildResult buildResult =
+            SnapshotBuilder.Build(loadResult.Package);
 
         if (!buildResult.Success || buildResult.Snapshot is null)
         {

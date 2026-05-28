@@ -1,5 +1,4 @@
 using Glyph.Contracts;
-using Glyph.Loading;
 using Glyph.Runtime;
 
 namespace Glyph.Tests.Runtime;
@@ -9,7 +8,7 @@ public sealed class SnapshotStoreTests
     [Fact]
     public void Current_ReturnsInitialSnapshot()
     {
-        Snapshot snapshot = CreateSnapshot(oldVersion: 0);
+        Snapshot snapshot = CreateSnapshot(version: 1);
         SnapshotStore store = new(snapshot);
 
         Snapshot current = store.Current;
@@ -21,8 +20,8 @@ public sealed class SnapshotStoreTests
     [Fact]
     public void Swap_PublishesNewSnapshot()
     {
-        Snapshot first = CreateSnapshot(oldVersion: 0);
-        Snapshot second = CreateSnapshot(oldVersion: 1);
+        Snapshot first = CreateSnapshot(version: 1);
+        Snapshot second = CreateSnapshot(version: 2);
 
         SnapshotStore store = new(first);
 
@@ -32,18 +31,15 @@ public sealed class SnapshotStoreTests
         Assert.Equal<ulong>(2, store.Current.Version);
     }
 
-    private static Snapshot CreateSnapshot(ulong oldVersion)
+    private static Snapshot CreateSnapshot(ulong version)
     {
-        GlyphOptions options = new()
+        LocalizationPackage package = new()
         {
-            ResourcesPath = "Localization",
-            DefaultLocale = "en"
-        };
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
+            Version = version,
+            DefaultLocale = "en",
+            Resources =
             [
-                new LocaleResource
+                new LocalizationResource
                 {
                     Locale = "en",
                     SourceName = "en.json",
@@ -52,8 +48,10 @@ public sealed class SnapshotStoreTests
                         ["menu.play"] = "Play"
                     }
                 }
-            ],
-            oldVersion);
+            ]
+        };
+
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.True(result.Success);
 

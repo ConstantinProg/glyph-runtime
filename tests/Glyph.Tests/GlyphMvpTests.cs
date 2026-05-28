@@ -1,6 +1,7 @@
 ﻿using Glyph.Contracts;
 using Glyph.Loading;
 using Glyph.Runtime;
+using Glyph.Validation;
 
 namespace Glyph.Tests;
 
@@ -24,13 +25,14 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = LoadPackage(directory);
 
         Assert.True(result.Success);
         Assert.Empty(result.Errors);
-        Assert.Equal(2, result.Resources.Count);
-        Assert.Contains(result.Resources, resource => resource.Locale == "en");
-        Assert.Contains(result.Resources, resource => resource.Locale == "ru");
+        Assert.NotNull(result.Package);
+        Assert.Equal(2, result.Package.Resources.Length);
+        Assert.Contains(result.Package.Resources, resource => resource.Locale == "en");
+        Assert.Contains(result.Package.Resources, resource => resource.Locale == "ru");
     }
 
     [Fact]
@@ -381,7 +383,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = LoadPackage(directory);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -392,37 +394,35 @@ public sealed class GlyphMvpTests
     [Fact]
     public void Build_ReturnsDuplicateLocaleError_WhenLocalesCollideAfterNormalization()
     {
-        GlyphOptions options = new()
+        LocalizationPackage package = new()
         {
-            DefaultLocale = "en"
+            Version = 1,
+            DefaultLocale = "en",
+            Fallbacks = new Dictionary<string, string[]>(),
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    SourceName = "en.json",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["menu.play"] = "Play"
+                    }
+                },
+                new LocalizationResource
+                {
+                    Locale = "EN",
+                    SourceName = "EN.json",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["menu.exit"] = "Exit"
+                    }
+                }
+            ]
         };
 
-        LocaleResource[] resources =
-        [
-            new()
-            {
-                Locale = "en",
-                SourceName = "en.json",
-                Values = new Dictionary<string, string>
-                {
-                    ["menu.play"] = "Play"
-                }
-            },
-            new()
-            {
-                Locale = "EN",
-                SourceName = "EN.json",
-                Values = new Dictionary<string, string>
-                {
-                    ["menu.exit"] = "Exit"
-                }
-            }
-        ];
-
-        SnapshotBuildResult result = SnapshotBuilder.Build(
-            options,
-            resources,
-            oldSnapshotVersion: 0);
+        SnapshotBuildResult result = SnapshotBuilder.Build(package);
 
         Assert.False(result.Success);
         Assert.Null(result.Snapshot);
@@ -442,7 +442,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = LoadPackage(directory);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -456,10 +456,10 @@ public sealed class GlyphMvpTests
         using TempLocalizationDirectory directory = new();
 
         directory.WriteJson("PT-br", """
-    {
-      "menu.play": "Jogar"
-    }
-    """);
+        {
+          "menu.play": "Jogar"
+        }
+        """);
 
         IGlyphRuntime glyph = await CreateGlyphAsync(
             directory,
@@ -536,12 +536,36 @@ public sealed class GlyphMvpTests
             "en.json",
             [0x7B, 0x22, 0x6B, 0x22, 0x3A, 0x22, 0xFF, 0x22, 0x7D]);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = LoadPackage(directory);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
             error => error.Code == ErrorCodes.InvalidEncoding);
+    }
+
+    private static LocalizationPackageLoadResult LoadPackage(
+        TempLocalizationDirectory directory,
+        string defaultLocale = "en",
+        Dictionary<string, string[]>? fallbacks = null,
+        ulong packageVersion = 1)
+    {
+        OptionsValidationResult validationResult =
+            OptionsValidator.Validate(new GlyphOptions
+            {
+                ResourcesPath = directory.Path,
+                DefaultLocale = defaultLocale,
+                Fallbacks = fallbacks ?? new Dictionary<string, string[]>()
+            });
+
+        Assert.True(validationResult.Success);
+
+        RuntimeConfiguration configuration =
+            RuntimeConfiguration.From(validationResult);
+
+        return JsonLocalizationPackageLoader.Load(
+            configuration,
+            packageVersion);
     }
 
     private static async ValueTask<IGlyphRuntime> CreateGlyphAsync(

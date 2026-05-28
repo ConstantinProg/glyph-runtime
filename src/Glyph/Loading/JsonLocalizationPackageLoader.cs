@@ -1,19 +1,24 @@
 using Glyph.Contracts;
+using Glyph.Runtime;
 using Glyph.Validation;
 using System.Text;
 using System.Text.Json;
 
 namespace Glyph.Loading;
 
-internal static class JsonResourceLoader
+internal static class JsonLocalizationPackageLoader
 {
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
-    public static LoadResult Load(string resourcesPath)
+    public static LocalizationPackageLoadResult Load(
+        RuntimeConfiguration configuration,
+        ulong packageVersion)
     {
-        if (string.IsNullOrWhiteSpace(resourcesPath))
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        if (string.IsNullOrWhiteSpace(configuration.ResourcesPath))
         {
             return Failure(new ReloadError
             {
@@ -22,18 +27,18 @@ internal static class JsonResourceLoader
             });
         }
 
-        if (!Directory.Exists(resourcesPath))
+        if (!Directory.Exists(configuration.ResourcesPath))
         {
             return Failure(new ReloadError
             {
                 Code = ErrorCodes.ResourcesPathNotFound,
                 Message = "ResourcesPath does not exist.",
-                SourceName = resourcesPath
+                SourceName = configuration.ResourcesPath
             });
         }
 
         string[] files = Directory
-            .GetFiles(resourcesPath, "*.json", SearchOption.TopDirectoryOnly)
+            .GetFiles(configuration.ResourcesPath, "*.json", SearchOption.TopDirectoryOnly)
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -43,11 +48,11 @@ internal static class JsonResourceLoader
             {
                 Code = ErrorCodes.NoJsonFiles,
                 Message = "ResourcesPath does not contain localization JSON files.",
-                SourceName = resourcesPath
+                SourceName = configuration.ResourcesPath
             });
         }
 
-        List<LocaleResource> resources = [];
+        List<LocalizationResource> resources = [];
         List<ReloadError> errors = [];
         HashSet<string> locales = new(StringComparer.Ordinal);
 
@@ -65,6 +70,7 @@ internal static class JsonResourceLoader
                     SourceName = sourceName,
                     Locale = rawLocale
                 });
+
                 continue;
             }
 
@@ -81,7 +87,11 @@ internal static class JsonResourceLoader
                 continue;
             }
 
-            LocaleResource? resource = LoadFile(file, sourceName, locale, errors);
+            LocalizationResource? resource = LoadFile(
+                file,
+                sourceName,
+                locale,
+                errors);
 
             if (resource is not null)
             {
@@ -89,15 +99,29 @@ internal static class JsonResourceLoader
             }
         }
 
-        return new LoadResult
+        if (errors.Count > 0)
         {
-            Success = errors.Count == 0,
-            Resources = resources,
-            Errors = errors
+            return new LocalizationPackageLoadResult
+            {
+                Success = false,
+                Errors = errors
+            };
+        }
+
+        return new LocalizationPackageLoadResult
+        {
+            Success = true,
+            Package = new LocalizationPackage
+            {
+                Version = packageVersion,
+                DefaultLocale = configuration.DefaultLocale,
+                Fallbacks = CopyFallbacks(configuration.Fallbacks),
+                Resources = resources.ToArray()
+            }
         };
     }
 
-    private static LocaleResource? LoadFile(
+    private static LocalizationResource? LoadFile(
         string filePath,
         string sourceName,
         string locale,
@@ -178,7 +202,7 @@ internal static class JsonResourceLoader
                         return null;
                     }
 
-                    return new LocaleResource
+                    return new LocalizationResource
                     {
                         Locale = locale,
                         SourceName = sourceName,
@@ -326,6 +350,19 @@ internal static class JsonResourceLoader
         }
     }
 
+    private static Dictionary<string, string[]> CopyFallbacks(
+        IReadOnlyDictionary<string, string[]> fallbacks)
+    {
+        Dictionary<string, string[]> copy = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, string[]> pair in fallbacks)
+        {
+            copy[pair.Key] = pair.Value.ToArray();
+        }
+
+        return copy;
+    }
+
     private static bool IsValidUtf8(ReadOnlySpan<byte> bytes)
     {
         try
@@ -349,9 +386,9 @@ internal static class JsonResourceLoader
                 : bytes;
     }
 
-    private static LoadResult Failure(ReloadError error)
+    private static LocalizationPackageLoadResult Failure(ReloadError error)
     {
-        return new LoadResult
+        return new LocalizationPackageLoadResult
         {
             Success = false,
             Errors = [error]

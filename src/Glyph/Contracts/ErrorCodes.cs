@@ -13,6 +13,7 @@ internal static class ErrorCodes
     public const string FallbackCycle = "FALLBACK_CYCLE";
     public const string InvalidEncoding = "INVALID_ENCODING";
     public const string InvalidOptions = "INVALID_OPTIONS";
+    public const string InvalidLocalizationPackage = "INVALID_LOCALIZATION_PACKAGE";
     public const string ResourcesPathNotFound = "RESOURCES_PATH_NOT_FOUND";
     public const string NoJsonFiles = "NO_JSON_FILES";
     public const string NullValue = "NULL_VALUE";

@@ -1,12 +1,13 @@
 using Glyph.Contracts;
 using Glyph.Loading;
+using Glyph.Runtime;
 
 namespace Glyph.Tests.Loading;
 
-public sealed class JsonResourceLoaderTests
+public sealed class JsonLocalizationPackageLoaderTests
 {
     [Fact]
-    public void Load_ReturnsResource_WhenJsonIsFlatObject()
+    public void Load_ReturnsPackage_WhenJsonIsFlatObject()
     {
         using TempLocalizationDirectory directory = new();
         directory.WriteJson("en.json", """
@@ -16,10 +17,14 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.True(result.Success);
-        LocaleResource resource = Assert.Single(result.Resources);
+        Assert.NotNull(result.Package);
+
+        LocalizationResource resource = Assert.Single(result.Package.Resources);
         Assert.Equal("en", resource.Locale);
         Assert.Equal("Play", resource.Values["menu.play"]);
         Assert.Equal("Exit", resource.Values["menu.exit"]);
@@ -37,7 +42,9 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -56,7 +63,9 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -74,7 +83,9 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -92,7 +103,9 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -111,10 +124,14 @@ public sealed class JsonResourceLoaderTests
         }
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.True(result.Success);
-        LocaleResource resource = Assert.Single(result.Resources);
+        Assert.NotNull(result.Package);
+
+        LocalizationResource resource = Assert.Single(result.Package.Resources);
         Assert.Equal("", resource.Values["empty.allowed"]);
         Assert.Equal("   ", resource.Values["spaces.allowed"]);
     }
@@ -125,23 +142,25 @@ public sealed class JsonResourceLoaderTests
         using TempLocalizationDirectory directory = new();
 
         directory.WriteJson("en.json", """
-    {
-      "menu.play": "Play"
-    }
-    """);
+        {
+          "menu.play": "Play"
+        }
+        """);
 
         directory.WriteJson("EN.json", """
-    {
-      "menu.exit": "Exit"
-    }
-    """);
+        {
+          "menu.exit": "Exit"
+        }
+        """);
 
         if (Directory.GetFiles(directory.Path, "*.json").Length < 2)
         {
             return;
         }
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -156,7 +175,9 @@ public sealed class JsonResourceLoaderTests
             System.IO.Path.GetTempPath(),
             Guid.NewGuid().ToString("N"));
 
-        LoadResult result = JsonResourceLoader.Load(missingPath);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(missingPath),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -169,7 +190,9 @@ public sealed class JsonResourceLoaderTests
     {
         using TempLocalizationDirectory directory = new();
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
@@ -186,12 +209,24 @@ public sealed class JsonResourceLoaderTests
           "menu.play": "Play",
         """);
 
-        LoadResult result = JsonResourceLoader.Load(directory.Path);
+        LocalizationPackageLoadResult result = JsonLocalizationPackageLoader.Load(
+            CreateConfiguration(directory.Path),
+            packageVersion: 1);
 
         Assert.False(result.Success);
         Assert.Contains(
             result.Errors,
             error => error.Code == ErrorCodes.InvalidJson);
+    }
+
+    private static RuntimeConfiguration CreateConfiguration(string resourcesPath)
+    {
+        return new RuntimeConfiguration
+        {
+            ResourcesPath = resourcesPath,
+            DefaultLocale = "en",
+            Fallbacks = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        };
     }
 
     private sealed class TempLocalizationDirectory : IDisposable
