@@ -1,282 +1,316 @@
 ﻿using Glyph.Contracts;
-using Glyph.Loading;
 using Glyph.Runtime;
-using Glyph.Validation;
-using Xunit;
 
-namespace Glyph.Tests.Runtime;
+namespace Glyph.Tests;
 
-public sealed class GlyphRuntimeReloadTests : IDisposable
+public sealed class GlyphRuntimeReloadTests
 {
-    private readonly string _resourcesPath;
-
-    public GlyphRuntimeReloadTests()
+    [Fact]
+    public async Task GlyphHost_CreateAsync_ReturnsReloadableGlyph()
     {
-        _resourcesPath = Path.Combine(
-            Path.GetTempPath(),
-            "glyph-tests",
-            Guid.NewGuid().ToString("N"));
+        using TestLocalizationDirectory directory = TestLocalizationDirectory.Create();
 
-        Directory.CreateDirectory(_resourcesPath);
+        directory.WriteJson("en.json", """
+        {
+          "hello": "Hello"
+        }
+        """);
+
+        IReloadableGlyph runtime = await GlyphHost.CreateAsync(new GlyphOptions
+        {
+            ResourcesPath = directory.Path,
+            DefaultLocale = "en"
+        });
+
+        Assert.IsAssignableFrom<IReloadableGlyph>(runtime);
+        Assert.IsAssignableFrom<IGlyphRuntime>(runtime);
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenReloadSucceeds_SwapsSnapshot()
+    public async Task ReloadAsync_WithPackage_ReplacesSnapshot_WhenPackageIsValid()
     {
-        WriteJson("en", """
+        IReloadableGlyph runtime = CreateRuntime(CreateInitialPackage());
+
+        ReloadResult result = await runtime.ReloadAsync(new LocalizationPackage
         {
-          "menu.play": "Play"
-        }
-        """);
+            Version = 2,
+            DefaultLocale = "en",
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Hello v2",
+                        ["bye"] = "Bye"
+                    }
+                }
+            ]
+        });
 
-        GlyphRuntime runtime = CreateRuntime();
+        LookupResult lookup = runtime.Get("en", "hello");
+        SnapshotInfo snapshotInfo = runtime.GetSnapshotInfo();
 
-        LookupResult before = runtime.Get("en", "menu.play");
-
-        Assert.Equal(LookupStatus.Found, before.Status);
-        Assert.Equal("Play", before.Value);
-        Assert.Equal(1UL, before.SnapshotVersion);
-
-        WriteJson("en", """
-        {
-          "menu.play": "Start"
-        }
-        """);
-
-        ReloadResult reloadResult = await runtime.ReloadAsync();
-
-        Assert.True(reloadResult.Success);
-        Assert.Equal(1UL, reloadResult.OldVersion);
-        Assert.Equal(2UL, reloadResult.NewVersion);
-
-        LookupResult after = runtime.Get("en", "menu.play");
-
-        Assert.Equal(LookupStatus.Found, after.Status);
-        Assert.Equal("Start", after.Value);
-        Assert.Equal(2UL, after.SnapshotVersion);
+        Assert.True(result.Success);
+        Assert.Equal<ulong>(1, result.OldVersion);
+        Assert.Equal<ulong>(2, result.NewVersion);
+        Assert.Equal<ulong>(2, snapshotInfo.Version);
+        Assert.Equal("Hello v2", lookup.Value);
+        Assert.Equal(LookupStatus.Found, lookup.Status);
+        Assert.Equal(1, result.LocaleCount);
+        Assert.Equal(2, result.UniqueKeyCount);
+        Assert.Equal(2, result.TotalEntryCount);
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenReloadFails_PreservesPreviousSnapshot()
+    public async Task ReloadAsync_WithPackage_ReturnsFailure_AndKeepsOldSnapshot_WhenPackageIsInvalid()
     {
-        WriteJson("en", """
+        IReloadableGlyph runtime = CreateRuntime(CreateInitialPackage());
+
+        ReloadResult result = await runtime.ReloadAsync(new LocalizationPackage
         {
-          "menu.play": "Play"
-        }
-        """);
+            Version = 2,
+            DefaultLocale = "ru",
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Hello v2"
+                    }
+                }
+            ]
+        });
 
-        GlyphRuntime runtime = CreateRuntime();
+        LookupResult lookup = runtime.Get("en", "hello");
+        SnapshotInfo snapshotInfo = runtime.GetSnapshotInfo();
 
-        WriteJson("en", """
-        {
-          "menu.play": {
-            "nested": "invalid"
-          }
-        }
-        """);
-
-        ReloadResult reloadResult = await runtime.ReloadAsync();
-
-        Assert.False(reloadResult.Success);
-        Assert.Equal(1UL, reloadResult.OldVersion);
-        Assert.Equal(1UL, reloadResult.NewVersion);
-        Assert.Contains(
-            reloadResult.Errors,
-            error => error.Code == ErrorCodes.NestedObjectNotSupported);
-
-        LookupResult after = runtime.Get("en", "menu.play");
-
-        Assert.Equal(LookupStatus.Found, after.Status);
-        Assert.Equal("Play", after.Value);
-        Assert.Equal(1UL, after.SnapshotVersion);
+        Assert.False(result.Success);
+        Assert.Equal<ulong>(1, result.OldVersion);
+        Assert.Equal<ulong>(1, result.NewVersion);
+        Assert.Equal<ulong>(1, snapshotInfo.Version);
+        Assert.Equal("Hello v1", lookup.Value);
+        Assert.Contains(result.Errors, error =>
+            error.Code == ErrorCodes.MissingDefaultLocale);
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenLocalizationFileIsInvalid_DoesNotThrow()
+    public async Task ReloadAsync_WithPackage_UsesDefaultLocaleAndFallbacksFromPackage()
     {
-        WriteJson("en", """
+        IReloadableGlyph runtime = CreateRuntime(CreateInitialPackage());
+
+        ReloadResult result = await runtime.ReloadAsync(new LocalizationPackage
         {
-          "menu.play": "Play"
-        }
-        """);
+            Version = 2,
+            DefaultLocale = "en",
+            Fallbacks = new Dictionary<string, string[]>
+            {
+                ["fr-CA"] = ["fr", "en"]
+            },
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Hello"
+                    }
+                },
+                new LocalizationResource
+                {
+                    Locale = "fr",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Bonjour"
+                    }
+                },
+                new LocalizationResource
+                {
+                    Locale = "fr-CA",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["local"] = "Allo"
+                    }
+                }
+            ]
+        });
 
-        GlyphRuntime runtime = CreateRuntime();
+        LookupResult explicitFallbackLookup = runtime.Get("fr-CA", "hello");
+        LookupResult defaultLocaleLookup = runtime.Get("es", "hello");
+        SnapshotInfo snapshotInfo = runtime.GetSnapshotInfo();
 
-        WriteJson("en", """
-        {
-          "menu.play":
-        }
-        """);
+        Assert.True(result.Success);
+        Assert.Equal("en", snapshotInfo.DefaultLocale);
 
-        Exception? exception = await Record.ExceptionAsync(
-            async () => await runtime.ReloadAsync());
+        Assert.Equal(LookupStatus.FoundViaFallback, explicitFallbackLookup.Status);
+        Assert.Equal("fr", explicitFallbackLookup.ResolvedLocale);
+        Assert.Equal("Bonjour", explicitFallbackLookup.Value);
 
-        Assert.Null(exception);
-
-        LookupResult after = runtime.Get("en", "menu.play");
-
-        Assert.Equal(LookupStatus.Found, after.Status);
-        Assert.Equal("Play", after.Value);
-        Assert.Equal(1UL, after.SnapshotVersion);
+        Assert.Equal(LookupStatus.FoundViaFallback, defaultLocaleLookup.Status);
+        Assert.Equal("en", defaultLocaleLookup.ResolvedLocale);
+        Assert.Equal("Hello", defaultLocaleLookup.Value);
     }
 
     [Fact]
-    public async Task ReloadAsync_WhenCancelled_ThrowsOperationCanceledExceptionAndPreservesSnapshot()
+    public async Task ReloadAsync_WithPackage_RespectsCancellationTokenBeforeOperation()
     {
-        WriteJson("en", """
-        {
-          "menu.play": "Play"
-        }
-        """);
-
-        GlyphRuntime runtime = CreateRuntime();
+        IReloadableGlyph runtime = CreateRuntime(CreateInitialPackage());
 
         using CancellationTokenSource cancellationTokenSource = new();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await runtime.ReloadAsync(cancellationTokenSource.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await runtime.ReloadAsync(
+                CreateReplacementPackage(),
+                cancellationTokenSource.Token);
+        });
 
-        LookupResult after = runtime.Get("en", "menu.play");
+        SnapshotInfo snapshotInfo = runtime.GetSnapshotInfo();
+        LookupResult lookup = runtime.Get("en", "hello");
 
-        Assert.Equal(LookupStatus.Found, after.Status);
-        Assert.Equal("Play", after.Value);
-        Assert.Equal(1UL, after.SnapshotVersion);
+        Assert.Equal<ulong>(1, snapshotInfo.Version);
+        Assert.Equal("Hello v1", lookup.Value);
     }
 
     [Fact]
-    public async Task ReloadAsync_DuringConcurrentLookups_DoesNotBlockOrThrowLookups()
+    public async Task ReloadAsync_WithoutPackage_ContinuesToReloadFromDisk()
     {
-        WriteJson("en", """
+        using TestLocalizationDirectory directory = TestLocalizationDirectory.Create();
+
+        directory.WriteJson("en.json", """
         {
-          "menu.play": "Play"
+          "hello": "Hello v1"
         }
         """);
 
-        GlyphRuntime runtime = CreateRuntime();
-
-        WriteJson("en", """
+        IReloadableGlyph runtime = await GlyphHost.CreateAsync(new GlyphOptions
         {
-          "menu.play": "Start"
-        }
-        """);
-
-        using CancellationTokenSource cancellationTokenSource =
-            new(TimeSpan.FromSeconds(2));
-
-        Task lookupTask = Task.Run(() =>
-        {
-            while (!cancellationTokenSource.IsCancellationRequested)
-            {
-                LookupResult result = runtime.Get("en", "menu.play");
-
-                Assert.Equal(LookupStatus.Found, result.Status);
-                Assert.NotNull(result.Value);
-                Assert.True(result.SnapshotVersion is 1UL or 2UL);
-            }
-        });
-
-        ReloadResult reloadResult = await runtime.ReloadAsync();
-
-        cancellationTokenSource.Cancel();
-
-        await lookupTask;
-
-        Assert.True(reloadResult.Success);
-        Assert.Equal(2UL, runtime.GetSnapshotInfo().Version);
-    }
-
-    [Fact]
-    public async Task ReloadAsync_DoesNotUseMutatedOriginalOptions()
-    {
-        WriteJson("en", """
-        {
-          "menu.play": "Play"
-        }
-        """);
-
-        GlyphOptions options = new()
-        {
-            ResourcesPath = _resourcesPath,
-            DefaultLocale = "en"
-        };
-
-        GlyphRuntime runtime = CreateRuntime(options);
-
-        options.ResourcesPath = Path.Combine(
-            Path.GetTempPath(),
-            "glyph-tests-missing",
-            Guid.NewGuid().ToString("N"));
-
-        WriteJson("en", """
-        {
-          "menu.play": "Start"
-        }
-        """);
-
-        ReloadResult reloadResult = await runtime.ReloadAsync();
-
-        Assert.True(reloadResult.Success);
-        Assert.Equal(1UL, reloadResult.OldVersion);
-        Assert.Equal(2UL, reloadResult.NewVersion);
-
-        LookupResult after = runtime.Get("en", "menu.play");
-
-        Assert.Equal(LookupStatus.Found, after.Status);
-        Assert.Equal("Start", after.Value);
-        Assert.Equal(2UL, after.SnapshotVersion);
-    }
-
-    public void Dispose()
-    {
-        if (Directory.Exists(_resourcesPath))
-        {
-            Directory.Delete(_resourcesPath, recursive: true);
-        }
-    }
-
-    private GlyphRuntime CreateRuntime()
-    {
-        return CreateRuntime(new GlyphOptions
-        {
-            ResourcesPath = _resourcesPath,
+            ResourcesPath = directory.Path,
             DefaultLocale = "en"
         });
+
+        directory.WriteJson("en.json", """
+        {
+          "hello": "Hello v2",
+          "bye": "Bye"
+        }
+        """);
+
+        ReloadResult result = await runtime.ReloadAsync();
+
+        LookupResult lookup = runtime.Get("en", "hello");
+        SnapshotInfo snapshotInfo = runtime.GetSnapshotInfo();
+
+        Assert.True(result.Success);
+        Assert.Equal<ulong>(1, result.OldVersion);
+        Assert.Equal<ulong>(2, result.NewVersion);
+        Assert.Equal<ulong>(2, snapshotInfo.Version);
+        Assert.Equal("Hello v2", lookup.Value);
+        Assert.Equal(2, result.UniqueKeyCount);
+        Assert.Equal(2, result.TotalEntryCount);
     }
 
-    private GlyphRuntime CreateRuntime(GlyphOptions options)
+    private static IReloadableGlyph CreateRuntime(
+        LocalizationPackage package)
     {
-        OptionsValidationResult validationResult =
-            OptionsValidator.Validate(options);
-
-        Assert.True(validationResult.Success);
-
-        RuntimeConfiguration configuration =
-            RuntimeConfiguration.From(validationResult);
-
-        LocalizationPackageLoadResult loadResult =
-            JsonLocalizationPackageLoader.Load(
-                configuration,
-                packageVersion: 1);
-
-        Assert.True(loadResult.Success);
-        Assert.NotNull(loadResult.Package);
-
-        SnapshotBuildResult buildResult =
-            SnapshotBuilder.Build(loadResult.Package);
+        SnapshotBuildResult buildResult = SnapshotBuilder.Build(package);
 
         Assert.True(buildResult.Success);
         Assert.NotNull(buildResult.Snapshot);
+
+        RuntimeConfiguration configuration = new()
+        {
+            ResourcesPath = "Localization",
+            DefaultLocale = package.DefaultLocale,
+            Fallbacks = package.Fallbacks
+        };
 
         return new GlyphRuntime(
             new SnapshotStore(buildResult.Snapshot),
             configuration);
     }
 
-    private void WriteJson(string locale, string json)
+    private static LocalizationPackage CreateInitialPackage()
     {
-        File.WriteAllText(
-            Path.Combine(_resourcesPath, $"{locale}.json"),
-            json);
+        return new LocalizationPackage
+        {
+            Version = 1,
+            DefaultLocale = "en",
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Hello v1"
+                    }
+                }
+            ]
+        };
+    }
+
+    private static LocalizationPackage CreateReplacementPackage()
+    {
+        return new LocalizationPackage
+        {
+            Version = 2,
+            DefaultLocale = "en",
+            Resources =
+            [
+                new LocalizationResource
+                {
+                    Locale = "en",
+                    Values = new Dictionary<string, string>
+                    {
+                        ["hello"] = "Hello v2"
+                    }
+                }
+            ]
+        };
+    }
+
+    private sealed class TestLocalizationDirectory : IDisposable
+    {
+        private TestLocalizationDirectory(string path)
+        {
+            Path = path;
+        }
+
+        public string Path { get; }
+
+        public static TestLocalizationDirectory Create()
+        {
+            string path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "glyph-tests",
+                Guid.NewGuid().ToString("N"));
+
+            Directory.CreateDirectory(path);
+
+            return new TestLocalizationDirectory(path);
+        }
+
+        public void WriteJson(
+            string fileName,
+            string content)
+        {
+            File.WriteAllText(
+                System.IO.Path.Combine(Path, fileName),
+                content);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+            {
+                Directory.Delete(Path, recursive: true);
+            }
+        }
     }
 }

@@ -3,7 +3,7 @@ using Glyph.Loading;
 
 namespace Glyph.Runtime;
 
-internal sealed class GlyphRuntime : IGlyphRuntime
+internal sealed class GlyphRuntime : IReloadableGlyph
 {
     private readonly SnapshotStore _snapshotStore;
     private readonly RuntimeConfiguration _configuration;
@@ -116,23 +116,63 @@ internal sealed class GlyphRuntime : IGlyphRuntime
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            Snapshot next = buildResult.Snapshot;
-            _snapshotStore.Swap(next);
-
-            return new ReloadResult
-            {
-                Success = true,
-                OldVersion = current.Version,
-                NewVersion = next.Version,
-                LocaleCount = next.Locales.Count,
-                UniqueKeyCount = next.UniqueKeyCount,
-                TotalEntryCount = next.TotalEntryCount
-            };
+            return SwapSnapshot(current, buildResult.Snapshot);
         }
         finally
         {
             _reloadLock.Release();
         }
+    }
+
+    public async ValueTask<ReloadResult> ReloadAsync(
+        LocalizationPackage package,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await _reloadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Snapshot current = _snapshotStore.Current;
+
+            SnapshotBuildResult buildResult =
+                SnapshotBuilder.Build(package);
+
+            if (!buildResult.Success || buildResult.Snapshot is null)
+            {
+                return CreateFailedReloadResult(current, buildResult.Errors);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return SwapSnapshot(current, buildResult.Snapshot);
+        }
+        finally
+        {
+            _reloadLock.Release();
+        }
+    }
+
+    private ReloadResult SwapSnapshot(
+        Snapshot current,
+        Snapshot next)
+    {
+        _snapshotStore.Swap(next);
+
+        return new ReloadResult
+        {
+            Success = true,
+            OldVersion = current.Version,
+            NewVersion = next.Version,
+            LocaleCount = next.Locales.Count,
+            UniqueKeyCount = next.UniqueKeyCount,
+            TotalEntryCount = next.TotalEntryCount
+        };
     }
 
     private static ReloadResult CreateFailedReloadResult(

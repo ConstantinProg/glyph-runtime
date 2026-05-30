@@ -228,7 +228,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
+        IReloadableGlyph glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -257,7 +257,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
+        IReloadableGlyph glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -293,7 +293,7 @@ public sealed class GlyphMvpTests
         }
         """);
 
-        IGlyphRuntime glyph = await CreateGlyphAsync(directory);
+        IReloadableGlyph glyph = await CreateGlyphAsync(directory);
 
         directory.WriteJson("en", """
         {
@@ -568,7 +568,7 @@ public sealed class GlyphMvpTests
             packageVersion);
     }
 
-    private static async ValueTask<IGlyphRuntime> CreateGlyphAsync(
+    private static async ValueTask<IReloadableGlyph> CreateGlyphAsync(
         TempLocalizationDirectory directory,
         string defaultLocale = "en",
         Dictionary<string, string[]>? fallbacks = null)

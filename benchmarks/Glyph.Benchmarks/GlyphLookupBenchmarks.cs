@@ -12,7 +12,7 @@ public class GlyphLookupBenchmarks
 
     private string _resourcesPath = string.Empty;
 
-    private IGlyphRuntime _glyph = null!;
+    private IReloadableGlyph _glyph = null!;
     private Dictionary<string, string> _dictionaryBaseline = null!;
 
     private string _exactKey = string.Empty;

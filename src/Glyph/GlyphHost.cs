@@ -8,7 +8,7 @@ namespace Glyph;
 
 public static class GlyphHost
 {
-    public static ValueTask<IGlyphRuntime> CreateAsync(
+    public static ValueTask<IReloadableGlyph> CreateAsync(
         GlyphOptions options,
         CancellationToken cancellationToken = default)
     {
@@ -49,7 +49,7 @@ public static class GlyphHost
             throw CreateInitializationException(buildResult.Errors);
         }
 
-        IGlyphRuntime runtime = new GlyphRuntime(
+        IReloadableGlyph runtime = new GlyphRuntime(
             new SnapshotStore(buildResult.Snapshot),
             configuration);
 

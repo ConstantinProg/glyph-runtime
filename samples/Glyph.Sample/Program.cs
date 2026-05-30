@@ -5,7 +5,7 @@ string resourcesPath = Path.Combine(
     AppContext.BaseDirectory,
     "Localization");
 
-IGlyphRuntime glyph = await GlyphHost.CreateAsync(new GlyphOptions
+IReloadableGlyph glyph = await GlyphHost.CreateAsync(new GlyphOptions
 {
     ResourcesPath = resourcesPath,
     DefaultLocale = "en",

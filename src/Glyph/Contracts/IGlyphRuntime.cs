@@ -30,12 +30,4 @@ public interface IGlyphRuntime
     /// </summary>
     /// <returns>The current snapshot information.</returns>
     SnapshotInfo GetSnapshotInfo();
-
-    /// <summary>
-    /// Reloads localization resources and atomically replaces the active snapshot if loading succeeds.
-    /// </summary>
-    /// <param name="cancellationToken">A token used to cancel the reload operation.</param>
-    /// <returns>The reload result.</returns>
-    ValueTask<ReloadResult> ReloadAsync(
-        CancellationToken cancellationToken = default);
 }
